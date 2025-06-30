@@ -1,0 +1,24 @@
+[phases.setup]
+nixPkgs = [
+  "yt-dlp",                    # YouTube audio downloader
+  "ffmpeg",                    # Audio processing library
+  "python3",                   # Python runtime for Demucs
+  "python311Packages.pip",     # Python package manager
+  "python311Packages.setuptools", # Python build tools
+  "python311Packages.wheel"    # Python wheel support
+]
+
+[phases.install]
+cmds = [
+  "python3 -m pip install --upgrade pip",
+  "python3 -m pip install -U demucs",  # Install Demucs for vocal separation
+  "npm install"                        # Install Node.js dependencies
+]
+
+[phases.build]
+cmds = [
+  "npm run build"
+]
+
+[start]
+cmd = "npm start"
