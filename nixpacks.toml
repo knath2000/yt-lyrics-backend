@@ -1,17 +1,16 @@
 [phases.setup]
 nixPkgs = [
-  "yt-dlp",                    # YouTube audio downloader
+  "python311",                 # Explicit Python version
+  "python311Packages.pip",     # pip for Python 3.11
+  "nodejs_20",                 # Explicit Node.js version used by app
   "ffmpeg",                    # Audio processing library
-  "python3",                   # Python runtime for Demucs
-  "python311Packages.pip",     # Python package manager
-  "python311Packages.setuptools", # Python build tools
-  "python311Packages.wheel"    # Python wheel support
+  "yt-dlp"                     # YouTube downloader CLI
 ]
 
 [phases.install]
 cmds = [
-  "python3 -m pip install --upgrade pip",
-  "python3 -m pip install -U demucs",  # Install Demucs for vocal separation
+  # Install Demucs and required PyTorch libs (CPU) in one go; skip pip upgrade to avoid Nix derivation bug
+  "python3 -m pip install --user --no-cache-dir demucs torch torchaudio",
   "npm install"                        # Install Node.js dependencies
 ]
 
