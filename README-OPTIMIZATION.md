@@ -160,4 +160,21 @@ Following [AWS optimization patterns](https://www.javierinthecloud.com/optimizin
 
 ---
 
+## 🐛 Known Issues & Solutions
+
+### Issue: Demucs Installation Failure
+**Problem**: `FileNotFoundError: requirements_minimal.txt` during demucs installation
+- Demucs 3.0.x source distributions on PyPI are broken
+- Missing `requirements_minimal.txt` file in sdist packages
+- pip falls back to broken source builds when wheels unavailable
+
+**Solution**: Pin to Demucs 4.x series (`demucs>=4.0,<5`)
+- Ships pre-built wheels for Linux/Python 3.10
+- Fixes packaging bug present in 3.x series
+- Stable and widely used (see [Hugging Face implementations](https://huggingface.co/spaces/Kajise/Demucs_v4-FT_4s))
+
+**Applied in**: `requirements.txt` and `Dockerfile`
+
+---
+
 **Note**: This optimization maintains full application functionality while dramatically reducing image size and enabling successful Railway deployments. 

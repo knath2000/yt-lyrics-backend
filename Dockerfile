@@ -36,8 +36,7 @@ RUN pip install --user --no-cache-dir \
     torch==2.0.1+cpu \
     --extra-index-url https://download.pytorch.org/whl/cpu
 
-# Install Demucs and other Python dependencies
-RUN pip install --user --no-cache-dir demucs
+# Install Python dependencies (including Demucs pinned to working version)
 RUN pip install --user --no-cache-dir -r requirements.txt
 
 # Install Node.js dependencies

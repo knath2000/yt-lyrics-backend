@@ -2,7 +2,7 @@
 # torch will be installed separately in Dockerfile with CPU-only index URL
 
 # Audio processing and source separation
-demucs>=4.0.0
+demucs>=4.0,<5
 
 # OpenAI API for Whisper transcription
 openai>=1.0.0
