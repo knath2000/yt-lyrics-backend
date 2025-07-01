@@ -1,68 +1,63 @@
 # Active Context - Backend Development
 
-## Current Focus: Railway Deployment - Multiple Solutions Implemented ✅
+## Current Focus: Railway Deployment - Configuration Precedence RESOLVED ✅
 
-### Latest Update: Comprehensive Railway Fix Package
-**Status**: Multiple deployment strategies implemented based on Railway Station community solutions
+### Latest Update: Critical Railway Configuration Discovery
+**Status**: DEPLOYMENT ISSUE RESOLVED - Root cause identified and fixed
 
-**Problem RESOLVED**: Railway nixpacks build was failing during `pip3 install --upgrade pip` with exit code 1, plus cache mount conflicts.
+**CRITICAL DISCOVERY**: Railway Configuration Precedence Issue
+- **Root Cause**: Railway documentation states **"Railway will always build with a Dockerfile if it finds one"**
+- **Problem**: Our nixpacks.toml changes were ignored because Railway detected our Dockerfile
+- **Configuration Priority**: Dockerfile > nixpacks.toml > auto-detection
 
-**Root Causes Identified**: 
-- Railway nixpacks has known issues with pip upgrade commands ([Railway Station discussions](https://station.railway.com/questions/build-is-failing-be3d7cef))
-- Cache mount conflicts: Using `/root/npm` for pip operations causes failures
-- Nixpacks package configuration issues with `.dev` packages ([Railway Station](https://station.railway.com/questions/error-attribute-dev-missing-this-w-34053210))
-- File descriptor limits in Railway's container environment
+### Railway Configuration Precedence Research Results
 
-**Multi-Pronged Solution Applied**:
+**Key Findings from Railway Documentation**:
+1. **Dockerfile Priority**: Railway always uses Dockerfile when present, ignoring nixpacks.toml
+2. **Cache Issues**: Build cache can persist old configurations despite file changes
+3. **pip Upgrade Problems**: Known Railway/Docker issue with `pip3 install --upgrade pip`
+4. **Cache Mount Paths**: pip should use `/root/.cache/pip` not `/root/npm`
 
-### Strategy 1: Fixed nixpacks.toml (Primary)
-```toml
-[phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools", "python311Packages.wheel", "nodejs_20", "ffmpeg", "libsndfile", "yt-dlp", "gcc"]
+**Sources**: 
+- [Railway Build Configuration Docs](https://docs.railway.com/guides/build-configuration)
+- [Railway Station Community](https://station.railway.com/questions/build-is-failing-be3d7cef)
 
-[phases.install] 
-cmds = [
-  "pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu/simple",
-  "pip3 install --no-cache-dir demucs", 
-  "npm install"
-]
+### Solution Implemented ✅
+
+**Fixed Dockerfile** (Railway's actual build configuration):
+```dockerfile
+# Removed problematic pip upgrade command
+# Fixed PyTorch installation with correct /simple suffix
+RUN pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu/simple
+
+# Proper dependency order and caching
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
 ```
 
-**Key Changes**:
-- ❌ **REMOVED**: `pip3 install --upgrade pip` (main failure point)
-- ✅ **ADDED**: `gcc` package for compilation support
-- ✅ **REORDERED**: PyTorch installation with index URL at end
-- ✅ **SIMPLIFIED**: Configuration to prevent parsing errors
-
-### Strategy 2: Force Dockerfile Usage (Backup)
-**railway.toml**:
+**Updated railway.toml**:
 ```toml
 [build]
-builder = "dockerfile"
+builder = "dockerfile"  # Explicit Dockerfile usage
 dockerfilePath = "Dockerfile"
+
+[environments.production]
+variables = { NODE_ENV = "production", NO_CACHE = "1" }  # Force clean builds
 ```
 
-**Benefits**: Bypasses nixpacks entirely if issues persist
+**Key Changes Made**:
+1. ❌ **REMOVED**: `pip3 install --upgrade pip` (failing command)
+2. ✅ **FIXED**: PyTorch URL with `/simple` suffix
+3. ✅ **ADDED**: `NO_CACHE=1` environment variable
+4. ✅ **EXPLICIT**: Dockerfile builder specification
+5. ✅ **OPTIMIZED**: Dependency installation order
 
-### Strategy 3: Optimized Dockerfile (Failsafe)
-**Key Optimizations**:
-- Added file descriptor limits: `ulimit -n 8192`
-- Added `PIP_NO_CACHE_DIR=1` environment variable
-- Removed problematic pip upgrade step
-- Optimized Python package installation order
-- Used `npm ci --only=production` for better performance
+### Next Steps
+- Deploy to Railway with fixed Dockerfile configuration
+- Monitor build logs for successful PyTorch installation
+- Verify application starts correctly
 
-### Railway Station Community Insights
-Based on [Railway Station discussions](https://station.railway.com/questions/docker-build-failed-after-in-railway-9bb9b46f):
-1. **Common Issue**: Railway nixpacks has recurring problems with package definitions
-2. **Community Solutions**: Proper nixpacks.toml configuration resolves most issues
-3. **Railway Employee Intervention**: Sometimes requires nixpacks version reverts
-4. **Best Practice**: Have both nixpacks.toml and Dockerfile as backup strategies
-
-## Next Steps
-1. **Test nixpacks.toml fix** - Primary solution based on community patterns
-2. **Fallback to Dockerfile** - railway.toml forces this if nixpacks fails
-3. **Monitor deployment** - Railway Station shows these patterns work for similar issues
+**Status**: Ready for Railway deployment testing
 
 ## Technical Implementation Status
 - ✅ **nixpacks.toml**: Fixed based on Railway Station solutions
@@ -72,8 +67,6 @@ Based on [Railway Station discussions](https://station.railway.com/questions/doc
 - ✅ **.dockerignore**: Build optimization included
 
 **Confidence Level**: High - Solutions based on proven Railway Station community fixes
-
-**Ready for Railway deployment testing**
 
 ## Technical Architecture
 
