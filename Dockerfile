@@ -33,10 +33,16 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies WITHOUT pip upgrade (Railway issue fix)
-# Use PyTorch CPU-only with correct index URL including /simple suffix
-RUN pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu/simple \
-    && pip3 install --no-cache-dir demucs \
-    && pip3 install --no-cache-dir -r requirements.txt
+# Install PyTorch CPU-only first (verbose for debugging)
+RUN pip3 install -v --no-cache-dir \
+    torch==2.0.1+cpu \
+    -f https://download.pytorch.org/whl/cpu/torch_stable.html
+
+# Install Demucs with verbose logs (depends on Rust)
+RUN pip3 install -v --no-cache-dir demucs
+
+# Install remaining Python requirements
+RUN pip3 install -v --no-cache-dir -r requirements.txt
 
 # Copy package.json for Node.js dependencies
 COPY package*.json ./
