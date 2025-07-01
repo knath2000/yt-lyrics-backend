@@ -24,7 +24,8 @@ RUN apk add --no-cache --virtual .build-deps \
     && apk add --no-cache \
     ffmpeg-dev \
     libsndfile-dev \
-    openblas-dev
+    openblas-dev \
+    lame-dev
 
 WORKDIR /app
 
@@ -65,6 +66,7 @@ RUN apk add --no-cache \
     libsndfile \
     openblas \
     libgomp \
+    lame \
     nodejs \
     curl \
     && rm -rf /var/cache/apk/*
