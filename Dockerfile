@@ -1,7 +1,7 @@
 # Multi-stage build for YouTube Lyrics Backend
 # Handles both Python (PyTorch/Demucs) and Node.js (Express API) dependencies
 
-FROM python:3.11-slim as python-base
+FROM python:3.10-slim as python-base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
