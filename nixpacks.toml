@@ -1,29 +1,17 @@
 providers = ["node"]
 
 [phases.setup]
-nixPkgs = [
-  "python311",                 # Explicit Python version
-  "python311Packages.pip",     # pip for Python 3.11
-  "python311Packages.setuptools", # Build support for manylinux wheels
-  "python311Packages.wheel",   # Wheel package support
-  "nodejs_20",                 # Explicit Node.js version used by app
-  "ffmpeg",                    # Audio processing library
-  "libsndfile",                # Required for soundfile dependency
-  "yt-dlp"                     # YouTube downloader CLI
-]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools", "python311Packages.wheel", "nodejs_20", "ffmpeg", "libsndfile", "yt-dlp", "gcc"]
 
 [phases.install]
 cmds = [
-  "pip3 install --upgrade pip",
-  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu/simple torch",
+  "pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu/simple",
   "pip3 install --no-cache-dir demucs",
   "npm install"
 ]
 
 [phases.build]
-cmds = [
-  "npm run build"
-]
+cmds = ["npm run build"]
 
 [start]
 cmd = "npm start"

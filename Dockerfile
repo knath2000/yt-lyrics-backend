@@ -7,6 +7,10 @@ FROM python:3.11-slim as python-base
 ENV PYTHONUNBUFFERED=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_NO_CACHE_DIR=1
+
+# Increase file descriptor limits for Railway
+RUN ulimit -n 8192
 
 # Install system dependencies required for audio processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,39 +24,34 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
-# Install yt-dlp system package
-RUN pip3 install --upgrade pip yt-dlp
-
+# Set working directory
 WORKDIR /app
 
-# Copy Python requirements first for better caching
-COPY requirements.txt ./
+# Install Python dependencies with optimized order
+# Install PyTorch first with CPU-only wheels
+RUN pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu/simple
 
-# Install Python dependencies with PyTorch CPU-only
-RUN pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu/simple torch
-RUN pip3 install --no-cache-dir demucs
+# Install yt-dlp and demucs
+RUN pip3 install --no-cache-dir yt-dlp demucs
 
-# Copy Node.js package files
+# Copy package files for Node.js dependencies
 COPY package*.json ./
 
 # Install Node.js dependencies
-RUN npm install
+RUN npm ci --only=production
 
-# Copy application source code
-COPY . ./
+# Copy application code
+COPY . .
 
 # Build the application
 RUN npm run build
 
-# Create temp directory for audio processing
-RUN mkdir -p /app/temp
-
-# Expose port (Railway will set PORT env var)
-EXPOSE $PORT
-
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:$PORT/health || exit 1
+    CMD curl -f http://localhost:${PORT:-3001}/health || exit 1
+
+# Expose port
+EXPOSE 3001
 
 # Start the application
 CMD ["npm", "start"] 

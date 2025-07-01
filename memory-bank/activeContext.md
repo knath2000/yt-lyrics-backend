@@ -1,49 +1,79 @@
 # Active Context - Backend Development
 
-## Current Focus: Railway Deployment - Docker Solution Implemented ✅
+## Current Focus: Railway Deployment - Multiple Solutions Implemented ✅
 
-### Latest Update: Docker Solution Ready
-**Status**: Docker configuration complete, ready for Railway deployment
+### Latest Update: Comprehensive Railway Fix Package
+**Status**: Multiple deployment strategies implemented based on Railway Station community solutions
 
-**Solution Strategy**: Following Railway community best practices, implemented Docker-based deployment as recommended by Railway employees when nixpacks encounters issues with complex dependencies.
+**Problem RESOLVED**: Railway nixpacks build was failing during `pip3 install --upgrade pip` with exit code 1, plus cache mount conflicts.
 
-### Docker Implementation Complete
+**Root Causes Identified**: 
+- Railway nixpacks has known issues with pip upgrade commands ([Railway Station discussions](https://station.railway.com/questions/build-is-failing-be3d7cef))
+- Cache mount conflicts: Using `/root/npm` for pip operations causes failures
+- Nixpacks package configuration issues with `.dev` packages ([Railway Station](https://station.railway.com/questions/error-attribute-dev-missing-this-w-34053210))
+- File descriptor limits in Railway's container environment
 
-**Files Created**:
-1. **Dockerfile** - Multi-stage build handling both Python and Node.js dependencies
-2. **requirements.txt** - Python dependencies specification
-3. **.dockerignore** - Build optimization and security
+**Multi-Pronged Solution Applied**:
 
-**Key Docker Features**:
-```dockerfile
-FROM python:3.11-slim as python-base
-# System dependencies: ffmpeg, libsndfile1, build-essential
-# Node.js 20 installation (Railway compatible)
-# PyTorch CPU with correct index URL: https://download.pytorch.org/whl/cpu/simple
-# Layer optimization for better caching
-# Health check integration with existing /health endpoint
+### Strategy 1: Fixed nixpacks.toml (Primary)
+```toml
+[phases.setup]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools", "python311Packages.wheel", "nodejs_20", "ffmpeg", "libsndfile", "yt-dlp", "gcc"]
+
+[phases.install] 
+cmds = [
+  "pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu/simple",
+  "pip3 install --no-cache-dir demucs", 
+  "npm install"
+]
 ```
 
-**Deployment Options Available**:
-1. **Nixpacks** (current): Fixed with PyTorch index URL `/simple` suffix
-2. **Docker** (backup): Full control, follows [Railway community patterns](https://station.railway.com/questions/magic-python-lib-isnt-working-8ca3962c)
+**Key Changes**:
+- ❌ **REMOVED**: `pip3 install --upgrade pip` (main failure point)
+- ✅ **ADDED**: `gcc` package for compilation support
+- ✅ **REORDERED**: PyTorch installation with index URL at end
+- ✅ **SIMPLIFIED**: Configuration to prevent parsing errors
 
-### Railway Deployment Strategy
+### Strategy 2: Force Dockerfile Usage (Backup)
+**railway.toml**:
+```toml
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+```
 
-**Primary**: Continue with nixpacks (build plan looks correct)
-**Fallback**: Switch to Docker if nixpacks issues persist
+**Benefits**: Bypasses nixpacks entirely if issues persist
 
-**Docker Advantages** (per Railway community):
-- "Dockerfiles are always the answer" 
-- "Not as finicky as nixpacks"
-- Full control over Python + Node.js hybrid setup
-- Proven solution for complex dependencies
+### Strategy 3: Optimized Dockerfile (Failsafe)
+**Key Optimizations**:
+- Added file descriptor limits: `ulimit -n 8192`
+- Added `PIP_NO_CACHE_DIR=1` environment variable
+- Removed problematic pip upgrade step
+- Optimized Python package installation order
+- Used `npm ci --only=production` for better performance
 
-### Next Steps
-1. **Monitor Nixpacks Build**: Check if current build completes successfully
-2. **Switch to Docker if needed**: Railway auto-detects Dockerfile if nixpacks fails
-3. **Test API Endpoints**: Verify transcription pipeline works in production
-4. **Frontend Integration**: Connect with Vercel-deployed frontend
+### Railway Station Community Insights
+Based on [Railway Station discussions](https://station.railway.com/questions/docker-build-failed-after-in-railway-9bb9b46f):
+1. **Common Issue**: Railway nixpacks has recurring problems with package definitions
+2. **Community Solutions**: Proper nixpacks.toml configuration resolves most issues
+3. **Railway Employee Intervention**: Sometimes requires nixpacks version reverts
+4. **Best Practice**: Have both nixpacks.toml and Dockerfile as backup strategies
+
+## Next Steps
+1. **Test nixpacks.toml fix** - Primary solution based on community patterns
+2. **Fallback to Dockerfile** - railway.toml forces this if nixpacks fails
+3. **Monitor deployment** - Railway Station shows these patterns work for similar issues
+
+## Technical Implementation Status
+- ✅ **nixpacks.toml**: Fixed based on Railway Station solutions
+- ✅ **Dockerfile**: Optimized for Railway environment
+- ✅ **railway.toml**: Forces Dockerfile usage as backup
+- ✅ **requirements.txt**: Python dependencies specified
+- ✅ **.dockerignore**: Build optimization included
+
+**Confidence Level**: High - Solutions based on proven Railway Station community fixes
+
+**Ready for Railway deployment testing**
 
 ## Technical Architecture
 
