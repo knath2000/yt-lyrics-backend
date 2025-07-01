@@ -1,38 +1,62 @@
 # Active Context - Backend Development
 
-## Current Focus: Railway Deployment - RESOLVED ✅
+## Current Focus: Railway Deployment - Docker Solution Implemented ✅
 
-### Latest Update: PyTorch Installation Fixed
-**Status**: Ready for Railway deployment testing
+### Latest Update: Docker Solution Ready
+**Status**: Docker configuration complete, ready for Railway deployment
 
-**Problem RESOLVED**: Railway nixpacks build was failing during PyTorch CPU installation with exit code 1.
+**Solution Strategy**: Following Railway community best practices, implemented Docker-based deployment as recommended by Railway employees when nixpacks encounters issues with complex dependencies.
 
-**Root Cause Identified**: 
-- PyTorch index URL was missing `/simple` suffix required by pip's Simple Repository API
-- Old URL: `https://download.pytorch.org/whl/cpu` 
-- Needed: `https://download.pytorch.org/whl/cpu/simple`
+### Docker Implementation Complete
 
-**Solution Applied**:
-```toml
-[phases.install] 
-cmds = [
-  "pip3 install --upgrade pip",
-  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu/simple torch",
-  "pip3 install --no-cache-dir demucs", 
-  "npm install"
-]
+**Files Created**:
+1. **Dockerfile** - Multi-stage build handling both Python and Node.js dependencies
+2. **requirements.txt** - Python dependencies specification
+3. **.dockerignore** - Build optimization and security
+
+**Key Docker Features**:
+```dockerfile
+FROM python:3.11-slim as python-base
+# System dependencies: ffmpeg, libsndfile1, build-essential
+# Node.js 20 installation (Railway compatible)
+# PyTorch CPU with correct index URL: https://download.pytorch.org/whl/cpu/simple
+# Layer optimization for better caching
+# Health check integration with existing /health endpoint
 ```
 
-**Key Changes**:
-1. Added `pip3 install --upgrade pip` first (ensures latest pip version)
-2. Fixed PyTorch index URL with `/simple` suffix (PyPI standard)
-3. Maintained npm for Node.js dependencies (Railway compatibility)
+**Deployment Options Available**:
+1. **Nixpacks** (current): Fixed with PyTorch index URL `/simple` suffix
+2. **Docker** (backup): Full control, follows [Railway community patterns](https://station.railway.com/questions/magic-python-lib-isnt-working-8ca3962c)
+
+### Railway Deployment Strategy
+
+**Primary**: Continue with nixpacks (build plan looks correct)
+**Fallback**: Switch to Docker if nixpacks issues persist
+
+**Docker Advantages** (per Railway community):
+- "Dockerfiles are always the answer" 
+- "Not as finicky as nixpacks"
+- Full control over Python + Node.js hybrid setup
+- Proven solution for complex dependencies
 
 ### Next Steps
-1. **Test Railway Deployment**: Deploy with fixed nixpacks.toml
-2. **Verify Build Success**: Confirm PyTorch installs properly
-3. **Test API Endpoints**: Ensure transcription pipeline works in production
+1. **Monitor Nixpacks Build**: Check if current build completes successfully
+2. **Switch to Docker if needed**: Railway auto-detects Dockerfile if nixpacks fails
+3. **Test API Endpoints**: Verify transcription pipeline works in production
 4. **Frontend Integration**: Connect with Vercel-deployed frontend
+
+## Technical Architecture
+
+**Hybrid Stack**: Express.js API + Python Audio Processing
+- **API Layer**: Node.js/Express (port handling, job management)
+- **Processing Layer**: Python (PyTorch, Demucs, Whisper)
+- **System Dependencies**: ffmpeg, libsndfile1, yt-dlp
+
+**Docker Benefits**:
+- Guaranteed dependency compatibility
+- Consistent Python 3.11 + Node.js 20 environment
+- Optimized build process with layer caching
+- Health monitoring integration
 
 ## Recent Critical Resolution
 - **DEPLOYMENT BLOCKER FIXED**: Corrected nixpacks.toml providers syntax

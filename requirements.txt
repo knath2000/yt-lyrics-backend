@@ -1,0 +1,23 @@
+# PyTorch (CPU-only version installed via Docker with specific index)
+# torch will be installed separately in Dockerfile with CPU-only index URL
+
+# Audio processing and source separation
+demucs>=4.0.0
+
+# OpenAI API for Whisper transcription
+openai>=1.0.0
+
+# Audio file handling and processing
+librosa>=0.10.0
+soundfile>=0.12.0
+numpy>=1.24.0
+
+# YouTube downloading (also installed via system package in Docker)
+yt-dlp>=2023.1.0
+
+# Utility libraries
+requests>=2.28.0
+python-dotenv>=1.0.0
+
+# Optional: Audio alignment and processing
+scipy>=1.10.0 
