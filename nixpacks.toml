@@ -2,6 +2,8 @@
 nixPkgs = [
   "python311",                 # Explicit Python version
   "python311Packages.pip",     # pip for Python 3.11
+  "python311Packages.setuptools", # Build support for manylinux wheels
+  "python311Packages.wheel",   # Wheel package support
   "nodejs_20",                 # Explicit Node.js version used by app
   "ffmpeg",                    # Audio processing library
   "yt-dlp"                     # YouTube downloader CLI
