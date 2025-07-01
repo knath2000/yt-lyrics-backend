@@ -16,18 +16,50 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Push to Hugging Face Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      - name: Setup Git for HF Space
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-          git push https://onlyminorspdf:$HF_TOKEN@huggingface.co/spaces/onlyminorspdf/onlyminor main
+
+      - name: Clone HF Space repository
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git clone https://onlyminorspdf:$HF_TOKEN@huggingface.co/spaces/onlyminorspdf/onlyminor hf-space
+
+      - name: Copy backend files to HF Space root
+        run: |
+          # Remove all files except .git directory
+          find hf-space -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          
+          # Copy all backend files to Space root
+          cp -r youtube-lyrics-backend/* hf-space/
+          
+          # Ensure proper permissions
+          chmod +x hf-space/Dockerfile 2>/dev/null || true
+
+      - name: Commit and push to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          cd hf-space
+          git add .
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Sync from GitHub: ${{ github.sha }}"
+            git push https://onlyminorspdf:$HF_TOKEN@huggingface.co/spaces/onlyminorspdf/onlyminor main
+          fi
 
   check-file-size:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Check large files
         uses: ActionsDesk/lfs-warning@v2.0
         with:
