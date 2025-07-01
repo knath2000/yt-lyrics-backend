@@ -14,8 +14,9 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
-app.listen(PORT, () => {
-  console.log(`Backend listening on http://localhost:${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+// Use port 7860 for Hugging Face Spaces compatibility, fallback to 4000 for local dev
+const PORT = process.env.PORT ? Number(process.env.PORT) : 7860;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Backend listening on http://0.0.0.0:${PORT}`);
+  console.log(`Health check: http://0.0.0.0:${PORT}/health`);
 }); 

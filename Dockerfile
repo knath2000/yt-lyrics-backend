@@ -1,93 +1,55 @@
-# syntax=docker/dockerfile:1
+# Use Debian-based Python image for better PyPI wheel compatibility
+FROM python:3.11-slim as base
 
-# ===== BUILD STAGE =====
-FROM python:3.10-alpine AS builder
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    NODE_ENV=production
 
-# Set environment variables for build
-ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-
-# Install build dependencies in a single layer
-RUN apk add --no-cache --virtual .build-deps \
-    build-base \
-    musl-dev \
-    linux-headers \
-    gcc \
-    g++ \
-    rust \
-    cargo \
-    pkgconfig \
+# Install system dependencies including Node.js
+RUN apt-get update && apt-get install -y \
+    build-essential \
     curl \
-    nodejs \
-    npm \
-    && apk add --no-cache \
-    ffmpeg-dev \
-    libsndfile-dev \
-    openblas-dev \
-    lame-dev
+    ffmpeg \
+    libsndfile1 \
+    libopenblas-dev \
+    libgomp1 \
+    pkg-config \
+    git \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy dependency files first for better caching
-COPY requirements.txt package*.json ./
-
-# Install Python dependencies with CPU-only PyTorch
-RUN pip install --user --no-cache-dir \
-    torch==2.0.1+cpu \
-    --extra-index-url https://download.pytorch.org/whl/cpu
-
-# Install Python dependencies (including Demucs pinned to working version)
-RUN pip install --user --no-cache-dir -r requirements.txt
+# Copy dependency files
+COPY package*.json ./
+COPY requirements.txt ./
 
 # Install Node.js dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy application code
+# Install Python dependencies with CPU-only PyTorch
+RUN pip install torch==2.2.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+RUN pip install demucs==4.0.1
+RUN pip install -r requirements.txt
+
+# Copy source code
 COPY . .
 
-# Build the application if build script exists
-RUN npm run build || echo "No build script found, continuing..."
+# Build TypeScript
+RUN npm run build
 
-# Clean up build dependencies
-RUN apk del .build-deps
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:7860/health || exit 1
 
-# ===== RUNTIME STAGE =====
-FROM python:3.10-alpine AS runtime
+# Expose port 7860 (Hugging Face Spaces standard)
+EXPOSE 7860
 
-# Set production environment variables
-ENV PYTHONUNBUFFERED=1
-ENV NODE_ENV=production
-ENV PATH=/root/.local/bin:$PATH
-
-# Install only runtime dependencies
-RUN apk add --no-cache \
-    ffmpeg \
-    libsndfile \
-    openblas \
-    libgomp \
-    lame \
-    nodejs \
-    curl \
-    && rm -rf /var/cache/apk/*
-
-WORKDIR /app
-
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
-
-# Copy Node.js dependencies from builder
-COPY --from=builder /app/node_modules ./node_modules
-
-# Copy built application
-COPY --from=builder /app .
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
-
-# Expose port
-EXPOSE 3000
+# Set PORT environment variable for Hugging Face Spaces
+ENV PORT=7860
 
 # Start the application
-CMD ["npm", "start"] 
+CMD ["node", "dist/index.js"] 
