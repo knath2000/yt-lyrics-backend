@@ -7,6 +7,7 @@
 - **Demucs Integration**: Full vocal separation with audio backend compatibility
 - **Alignment System**: Word-level timestamp alignment and SRT generation
 - **Error Handling**: Comprehensive error recovery and user feedback
+- **Railway Deployment**: Fixed PyTorch CPU installation with optimized build configuration
 
 ## What's Left
 - **Persistence**: Job state storage (SQLite/Redis implementation)
@@ -22,16 +23,27 @@
 - ✅ Integrated GitHub repository & enabled Railway auto-deploy
 - ✅ Refactored `nixpacks.toml` (removed pip upgrade, pinned Python/Node, added build deps)
 - ✅ Iterative build troubleshooting with Torch/Demucs split install
+- ✅ **RESOLVED: Railway PyTorch Installation** - Fixed with npm-based build and optimized PyTorch CPU wheel strategy
+
+## Railway Deployment Solution
+**Problem**: PyTorch CPU wheel installation failing in nixpacks build environment
+**Root Cause**: Complex workspace setup and pip/PyTorch wheel compatibility issues
+**Solution Implemented**:
+- Switched from pnpm workspace setup to npm for Railway compatibility
+- Used `--index-url https://download.pytorch.org/whl/cpu` instead of `--extra-index-url` for PyTorch installation
+- Simplified nixpacks.toml with direct pip3 commands and npm install
+- Removed workspace dependencies and corepack complications
+- Maintained individual repository structure for separate deployments
 
 ## Known Issues
 - Large YouTube downloads need timeout handling
 - Memory usage optimization for concurrent processing
 - Need production-grade job queue system
-- Railway build still failing on PyTorch 3.11 CPU wheel; requires investigation
 
 ## Timeline
 | Date | Milestone |
 |------|-----------|
 | 2025-01-30 | Enhanced audio processing pipeline |
 | 2025-01-30 | Demucs integration with backend compatibility |
-| 2025-07-01 | GitHub repo + Railway CI/CD setup; Nixpacks build iteration | 
+| 2025-07-01 | GitHub repo + Railway CI/CD setup; Nixpacks build iteration |
+| 2025-07-01 | **Railway deployment fix** - Resolved PyTorch installation with npm strategy | 

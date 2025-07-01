@@ -1,3 +1,6 @@
+[providers]
+packages = ["node"]
+
 [phases.setup]
 nixPkgs = [
   "python311",                 # Explicit Python version
@@ -12,11 +15,12 @@ nixPkgs = [
 
 [phases.install]
 cmds = [
-  # Install CPU-only PyTorch wheel first using the official PyTorch CPU index
-  "python3 -m pip install --no-cache-dir torch --extra-index-url https://download.pytorch.org/whl/cpu",
+  # Install CPU-only PyTorch wheel first using pip index URL strategy
+  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch",
   # Then install Demucs (pulls soundfile/librosa etc.)
-  "python3 -m pip install --no-cache-dir demucs",
-  "npm install"                        # Install Node.js dependencies
+  "pip3 install --no-cache-dir demucs",
+  # Install Node.js dependencies using npm for Railway compatibility
+  "npm install"
 ]
 
 [phases.build]
