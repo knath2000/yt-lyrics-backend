@@ -15,6 +15,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     curl \
     build-essential \
+    libgomp1 \
+    libopenblas-dev \
+    pkg-config \
+    rustc \
+    cargo \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20 (Railway compatible)
