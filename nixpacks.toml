@@ -6,13 +6,16 @@ nixPkgs = [
   "python311Packages.wheel",   # Wheel package support
   "nodejs_20",                 # Explicit Node.js version used by app
   "ffmpeg",                    # Audio processing library
+  "libsndfile",                # Required for soundfile dependency
   "yt-dlp"                     # YouTube downloader CLI
 ]
 
 [phases.install]
 cmds = [
-  # Install Demucs and required PyTorch libs (CPU) in one go; skip pip upgrade to avoid Nix derivation bug
-  "python3 -m pip install --user --no-cache-dir demucs torch torchaudio",
+  # Install CPU-only PyTorch wheel first using the official PyTorch CPU index
+  "python3 -m pip install --user --no-cache-dir torch --extra-index-url https://download.pytorch.org/whl/cpu",
+  # Then install Demucs (pulls soundfile/librosa etc.)
+  "python3 -m pip install --user --no-cache-dir demucs",
   "npm install"                        # Install Node.js dependencies
 ]
 
