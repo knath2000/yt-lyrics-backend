@@ -5,7 +5,7 @@
 _Describe the primary purpose of the backend (e.g., expose API endpoints that download YouTube audio, run transcription/alignment pipeline, and serve results to the frontend)._  
 
 ## Core Requirements
-- Expose REST endpoints under `/api/jobs` for job creation, status polling, and result retrieval.
+- Expose REST endpoints under `/api/jobs` for a job creation, status polling, and result retrieval.
 - Handle long-running transcription jobs via `TranscriptionWorker` pipeline.
 - Store interim files in local `temp/` (future: S3).
 
