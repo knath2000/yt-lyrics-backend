@@ -1,4 +1,30 @@
-# Progress Log - Backend
+# YouTube Lyrics Backend - Progress Tracking
+
+## Current Status: Railway Deployment Issue - RESOLVED ✅
+
+### Recent Achievements (Latest First)
+
+**✅ Railway PyTorch CPU Installation Fixed** (Latest)
+- **RESOLVED**: Fixed PyTorch CPU installation failure in Railway nixpacks build
+- **Root Cause**: PyTorch index URL was missing `/simple` suffix required by pip's Simple Repository API
+- **Solution Applied**: 
+  - Updated nixpacks.toml to use `https://download.pytorch.org/whl/cpu/simple` (added `/simple`)
+  - Added `pip3 install --upgrade pip` as first install command
+  - Simplified configuration while maintaining Railway compatibility
+- **Status**: Ready for Railway deployment testing
+
+**✅ npm → pnpm Investigation Completed**
+- Researched pnpm compatibility with Railway deployment platform
+- Found Railway Central Station discussions about pnpm v8/v9 issues
+- Determined core issue was Python pip PyTorch installation, not Node.js package management
+- Concluded pnpm switch wouldn't solve the PyTorch wheel installation problem
+
+**✅ Core Backend Functionality Complete**
+- API endpoints implemented (/api/jobs POST, GET)
+- Audio processing pipeline: YouTube download → Demucs separation → Whisper transcription
+- Alignment system for syncing lyrics with audio timing
+- Job status tracking and result retrieval
+- Error handling and logging throughout pipeline
 
 ## What Works
 - **Core API**: Endpoints `/api/jobs`, `/api/jobs/:id`, `/api/jobs/:id/result` fully operational

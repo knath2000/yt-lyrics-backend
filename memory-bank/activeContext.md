@@ -1,11 +1,38 @@
-# Active Context - Backend
+# Active Context - Backend Development
 
-_Last updated: 2025-07-01_
+## Current Focus: Railway Deployment - RESOLVED ✅
 
-## Current Focus
-- **Railway Deployment**: ✅ RESOLVED - Fixed critical nixpacks.toml syntax error preventing builds
-- **Ready for Production Deployment**: All build configuration issues resolved
-- **Next Phase**: Job persistence and cloud storage implementation
+### Latest Update: PyTorch Installation Fixed
+**Status**: Ready for Railway deployment testing
+
+**Problem RESOLVED**: Railway nixpacks build was failing during PyTorch CPU installation with exit code 1.
+
+**Root Cause Identified**: 
+- PyTorch index URL was missing `/simple` suffix required by pip's Simple Repository API
+- Old URL: `https://download.pytorch.org/whl/cpu` 
+- Needed: `https://download.pytorch.org/whl/cpu/simple`
+
+**Solution Applied**:
+```toml
+[phases.install] 
+cmds = [
+  "pip3 install --upgrade pip",
+  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu/simple torch",
+  "pip3 install --no-cache-dir demucs", 
+  "npm install"
+]
+```
+
+**Key Changes**:
+1. Added `pip3 install --upgrade pip` first (ensures latest pip version)
+2. Fixed PyTorch index URL with `/simple` suffix (PyPI standard)
+3. Maintained npm for Node.js dependencies (Railway compatibility)
+
+### Next Steps
+1. **Test Railway Deployment**: Deploy with fixed nixpacks.toml
+2. **Verify Build Success**: Confirm PyTorch installs properly
+3. **Test API Endpoints**: Ensure transcription pipeline works in production
+4. **Frontend Integration**: Connect with Vercel-deployed frontend
 
 ## Recent Critical Resolution
 - **DEPLOYMENT BLOCKER FIXED**: Corrected nixpacks.toml providers syntax
@@ -50,7 +77,8 @@ nixPkgs = [
 
 [phases.install]
 cmds = [
-  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch",
+  "pip3 install --upgrade pip",
+  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu/simple torch",
   "pip3 install --no-cache-dir demucs",
   "npm install"
 ]

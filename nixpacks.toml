@@ -14,11 +14,9 @@ nixPkgs = [
 
 [phases.install]
 cmds = [
-  # Install CPU-only PyTorch wheel first using pip index URL strategy
-  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch",
-  # Then install Demucs (pulls soundfile/librosa etc.)
+  "pip3 install --upgrade pip",
+  "pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu/simple torch",
   "pip3 install --no-cache-dir demucs",
-  # Install Node.js dependencies using npm for Railway compatibility
   "npm install"
 ]
 
