@@ -19,14 +19,19 @@
 - ✅ Improved error handling across all processing stages
 - ✅ Added MP3 compatibility and CPU-only processing
 - ✅ Robust environment configuration management
+- ✅ Integrated GitHub repository & enabled Railway auto-deploy
+- ✅ Refactored `nixpacks.toml` (removed pip upgrade, pinned Python/Node, added build deps)
+- ✅ Iterative build troubleshooting with Torch/Demucs split install
 
 ## Known Issues
 - Large YouTube downloads need timeout handling
 - Memory usage optimization for concurrent processing
 - Need production-grade job queue system
+- Railway build still failing on PyTorch 3.11 CPU wheel; requires investigation
 
 ## Timeline
 | Date | Milestone |
 |------|-----------|
 | 2025-01-30 | Enhanced audio processing pipeline |
-| 2025-01-30 | Demucs integration with backend compatibility | 
+| 2025-01-30 | Demucs integration with backend compatibility |
+| 2025-07-01 | GitHub repo + Railway CI/CD setup; Nixpacks build iteration | 
