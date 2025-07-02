@@ -60,6 +60,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 RUN useradd --create-home --shell /bin/bash app
 USER app
 WORKDIR /home/app
+ENV PATH="/home/app/.local/bin:${PATH}"
 
 # Copy Python environment from builder
 COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
