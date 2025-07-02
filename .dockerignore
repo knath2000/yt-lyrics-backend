@@ -124,4 +124,7 @@ htmlcov/
 
 # IPython
 profile_default/
-ipython_config.py 
+ipython_config.py
+
+# Allow cookies.txt for yt-dlp authentication
+!cookies.txt 
