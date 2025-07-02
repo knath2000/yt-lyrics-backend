@@ -18,7 +18,7 @@ export interface DownloadResult {
 
 async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise<DownloadResult> {
   // 0. Check for provided cookies.txt at project root (works in HF Spaces)
-  const cookiePath = path.resolve(__dirname, '../../cookies.txt');
+  const cookiePath = path.resolve(process.cwd(), 'cookies.txt');
   const hasCookiesFile = fs.existsSync(cookiePath);
 
   const cookieArg = hasCookiesFile ? `--cookies "${cookiePath}"` : "";
