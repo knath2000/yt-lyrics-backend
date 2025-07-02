@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { readFileSync } from "fs"; // Import readFileSync directly
 import { TranscriptionWorker } from "../worker.js";
 
 interface Job {
@@ -62,7 +63,7 @@ export default function createJobsRouter(worker: TranscriptionWorker): Router {
     
     try {
       // Read the results file from local storage
-      const resultsData = JSON.parse(require("fs").readFileSync(job.resultUrl, "utf8"));
+      const resultsData = JSON.parse(readFileSync(job.resultUrl, "utf8"));
       res.json(resultsData);
     } catch (error) {
       console.error(`Error reading results for job ${job.id} from ${job.resultUrl}:`, error);
