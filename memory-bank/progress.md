@@ -4,7 +4,13 @@
 
 ### Recent Achievements (Latest First)
 
-**✅ CRITICAL FIX: YouTube Download Reliability & Dependency Management** (Latest)
+**✅ OpenAI API Key Configuration** (Latest)
+- **Issue Resolved**: Ensured `OPENAI_API_KEY` is correctly read from environment variables for transcription.
+- **Root Cause**: Previous setup used a 'demo-key' fallback, not utilizing the secure environment variable.
+- **Solution Implemented**: Confirmed `TranscriptionWorker` initialization uses `process.env.OPENAI_API_KEY`.
+- **Status**: API key is now securely configurable via Hugging Face Space Secrets.
+
+**✅ CRITICAL FIX: YouTube Download Reliability & Dependency Management** (Previous)
 - **Issue Resolved**: `yt-dlp` download failures due to YouTube authentication/anti-bot measures and Node.js circular dependencies.
 - **Root Cause**:
     - YouTube blocking non-authenticated `yt-dlp` requests, especially for playlist URLs.
@@ -93,7 +99,7 @@
 ### **Immediate (Post-Deployment)**
 - ✅ **Monitor Build Success** - Current build should complete successfully
 - 🔄 **Verify Deployment** - Test application startup and health endpoint
-- 🔄 **Environment Configuration** - Add `OPENAI_API_KEY` in Spaces settings
+- ✅ **Environment Configuration** - Add `OPENAI_API_KEY` in Spaces settings
 - 🔄 **API Testing** - Validate all endpoints: `/health`, `/api/jobs/*`
 
 ### **Production Validation (Next)**

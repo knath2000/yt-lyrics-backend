@@ -36,4 +36,5 @@ Requires:
 - Deployment is now stable and functional on Hugging Face Spaces after resolving circular dependencies and `yt-dlp` authentication issues.
 
 ### Secrets Management
+- `OPENAI_API_KEY`: Environment variable used for authenticating with the OpenAI API for transcription.
 - `YOUTUBE_COOKIES_CONTENT`: Environment variable used to securely provide YouTube authentication cookies to `yt-dlp` at runtime.

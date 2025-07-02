@@ -65,7 +65,8 @@ export default function createJobsRouter(worker: TranscriptionWorker): Router {
       const resultsData = JSON.parse(require("fs").readFileSync(job.resultUrl, "utf8"));
       res.json(resultsData);
     } catch (error) {
-      res.status(500).json({ error: "Failed to read results" });
+      console.error(`Error reading results for job ${job.id} from ${job.resultUrl}:`, error);
+      res.status(500).json({ error: "Failed to read results", details: (error as Error).message });
     }
   });
 
