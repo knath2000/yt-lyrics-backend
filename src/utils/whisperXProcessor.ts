@@ -20,13 +20,14 @@ export class WhisperXProcessor {
       // Using --output_format json to get JSON output
       // Using --align_model Basic for a simple alignment model
       const whisperXProcess = spawn("whisperx", [
-        audioPath,
+        "align", // Use the align subcommand
+        "--audio", audioPath,
+        "--transcript", tempTxtPath, // Pass the transcription text file
         "--compute_type", "float16", // Use float16 for better performance on CPU
-        "--model", "base", // Use a base model for alignment
         "--output_dir", path.dirname(audioPath),
         "--output_format", "json",
+        "--model", "base", // Use a base model for alignment
         "--align_model", "Wav2Vec2-Large-v2", // Specify an alignment model
-        "--text_file", tempTxtPath, // Pass the transcription text file
       ]);
 
       let stdout = "";
