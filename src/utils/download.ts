@@ -19,10 +19,51 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
   }
 
   try {
-    // First, get video info with better error handling
+    // Strategy 1: Try with mweb client (often works without authentication)
     console.log(`Getting video info for: ${youtubeUrl}`);
-    const infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings "${youtubeUrl}"`;
-    const { stdout: infoOutput, stderr: infoError } = await execAsync(infoCmd);
+    let infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --extractor-args "youtube:player_client=mweb" "${youtubeUrl}"`;
+    
+    let infoResult: { stdout: string; stderr: string } | null = null;
+    try {
+      infoResult = await execAsync(infoCmd);
+    } catch (mwebError) {
+      console.log(`mweb client failed, trying with browser cookies...`);
+      
+      // Strategy 2: Try with browser cookies (Chrome first, then Firefox)
+      const browsers = ['chrome', 'firefox', 'safari', 'edge'];
+      let cookieSuccess = false;
+      
+      for (const browser of browsers) {
+        try {
+          console.log(`Attempting with ${browser} cookies...`);
+          infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --cookies-from-browser ${browser} "${youtubeUrl}"`;
+          infoResult = await execAsync(infoCmd);
+          cookieSuccess = true;
+          console.log(`Successfully authenticated with ${browser} cookies`);
+          break;
+        } catch (browserError) {
+          console.log(`${browser} cookies failed: ${browserError}`);
+          continue;
+        }
+      }
+      
+      if (!cookieSuccess) {
+        // Strategy 3: Try alternative extractors or basic approach
+        console.log(`Browser cookies failed, trying basic approach with different user agent...`);
+        infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" "${youtubeUrl}"`;
+        try {
+          infoResult = await execAsync(infoCmd);
+        } catch (basicError) {
+          throw new Error(`All authentication methods failed. Last error: ${basicError}`);
+        }
+      }
+    }
+    
+    if (!infoResult) {
+      throw new Error(`Failed to get video information with any method`);
+    }
+    
+    const { stdout: infoOutput, stderr: infoError } = infoResult;
     
     if (infoError) {
       console.log(`yt-dlp info stderr: ${infoError}`);
@@ -44,9 +85,10 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
     const safeFilename = cleanTitle || `audio_${Date.now()}`;
     const outputTemplate = path.join(outputDir, `${safeFilename}.%(ext)s`);
 
-    // Download audio with better options for YouTube Music
+    // Download audio using the same authentication method that worked for info
     console.log(`Downloading audio...`);
-    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-warnings --no-playlist -o "${outputTemplate}" "${youtubeUrl}"`;
+    let downloadCmd = infoCmd.replace('--print "%(title)s|%(duration)s"', `-x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}"`);
+    
     const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
     
     if (downloadError) {
