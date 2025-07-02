@@ -27,51 +27,21 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
   }
 
   try {
-    // Strategy 1: Try with mweb client (often works without authentication)
     console.log(`Getting video info for: ${youtubeUrl}`);
-    let infoCmd = hasCookiesFile
-      ? `yt-dlp --print \"%(title)s|%(duration)s\" ${cookieArg} --no-warnings \"${youtubeUrl}\"`
-      : `yt-dlp --print \"%(title)s|%(duration)s\" --no-warnings --extractor-args \"youtube:player_client=mweb\" \"${youtubeUrl}\"`;
+    // Use a more robust user agent to mimic a real browser
+    const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    
+    // Always include cookies.txt if available, and use a robust user agent
+    let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${cookieArg} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     let infoResult: { stdout: string; stderr: string } | null = null;
     try {
       infoResult = await execAsync(infoCmd);
-    } catch (mwebError) {
-      console.log(`mweb client failed, trying with browser cookies...`);
-      
-      // If we already attempted with explicit cookies.txt and failed, don't retry cookie browsers
-      if (!hasCookiesFile) {
-        // Strategy 2: Try with browser cookies (Chrome first, then Firefox)
-        const browsers = ['chrome', 'firefox', 'safari', 'edge'];
-        let cookieSuccess = false;
-        
-        for (const browser of browsers) {
-          try {
-            console.log(`Attempting with ${browser} cookies...`);
-            infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --cookies-from-browser ${browser} "${youtubeUrl}"`;
-            infoResult = await execAsync(infoCmd);
-            cookieSuccess = true;
-            console.log(`Successfully authenticated with ${browser} cookies`);
-            break;
-          } catch (browserError) {
-            console.log(`${browser} cookies failed: ${browserError}`);
-            continue;
-          }
-        }
-        
-        if (!cookieSuccess) {
-          // Strategy 3: Try alternative extractors or basic approach
-          console.log(`Browser cookies failed, trying basic approach with different user agent...`);
-          infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" "${youtubeUrl}"`;
-          try {
-            infoResult = await execAsync(infoCmd);
-          } catch (basicError) {
-            throw new Error(`All authentication methods failed. Last error: ${basicError}`);
-          }
-        }
-      } else {
-        // if cookies.txt worked, skip further authentication fallback
-      }
+    } catch (error) {
+      // If the initial attempt with cookies.txt and user-agent fails,
+      // it means the primary strategy is not working.
+      // No further fallbacks for yt-dlp are needed as per the plan.
+      throw new Error(`yt-dlp failed to get video info: ${(error as Error).message}`);
     }
     
     if (!infoResult) {
@@ -101,8 +71,8 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
     const outputTemplate = path.join(outputDir, `${safeFilename}.%(ext)s`);
 
     // Download audio using the same authentication method that worked for info
-    console.log(`Downloading audio...`);
-    let downloadCmd = infoCmd.replace('--print "%(title)s|%(duration)s"', `-x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}"`);
+    console.log(`Downloading audio with yt-dlp...`);
+    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${cookieArg} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
     
@@ -212,4 +182,4 @@ export async function downloadYouTubeAudio(
       throw new Error(`Both download methods failed. yt-dlp: ${(ytDlpError as Error).message}, ytdl-core: ${(ytdlError as Error).message}`);
     }
   }
-} 
+}
