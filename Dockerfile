@@ -23,7 +23,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Stage 2: Node.js application
+# Stage 2: Node.js application build
 FROM node:20-slim as node-builder
 
 WORKDIR /app
@@ -31,8 +31,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install Node.js dependencies
-RUN npm ci --only=production
+# Install ALL dependencies (including dev dependencies for TypeScript build)
+RUN npm ci
 
 # Copy source code
 COPY src/ ./src/
@@ -48,8 +48,12 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
-    nodejs \
-    npm \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20 in the Python container
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -61,10 +65,12 @@ WORKDIR /home/app
 COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=python-builder /usr/local/bin /usr/local/bin
 
-# Copy Node.js application
-COPY --from=node-builder /app/node_modules ./node_modules
-COPY --from=node-builder /app/dist ./dist
+# Copy Node.js application (only production dependencies)
 COPY --from=node-builder /app/package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy the built JavaScript files
+COPY --from=node-builder /app/dist ./dist
 
 # Create temp directory for audio processing
 RUN mkdir -p temp
