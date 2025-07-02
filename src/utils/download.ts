@@ -33,7 +33,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
     
     // Always include cookies.txt if available, and use a robust user agent
     console.log(`Checking for cookies file at: ${effectiveCookiePath}, Exists: ${hasCookiesFile}`);
-      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" --no-playlist ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     let infoResult: { stdout: string; stderr: string } | null = null;
     try {
