@@ -1,4 +1,4 @@
-import ytdl from "ytdl-core";
+
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
@@ -73,7 +73,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
     // Download audio using the same authentication method that worked for info
     console.log(`Downloading audio with yt-dlp...`);
-    const downloadCmd = `yt-dlp --rm-cache-dir -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+    const downloadCmd = `yt-dlp --rm-cache-dir -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" --referer "https://www.youtube.com/" \"${youtubeUrl}\"`;
     
     const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
     
@@ -123,65 +123,11 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
   }
 }
 
-async function downloadWithYtdlCore(youtubeUrl: string, outputDir: string): Promise<DownloadResult> {
-  // Validate YouTube URL
-  if (!ytdl.validateURL(youtubeUrl)) {
-    throw new Error("Invalid YouTube URL");
-  }
-
-  // Get video info
-  const info = await ytdl.getInfo(youtubeUrl);
-  const title = info.videoDetails.title.replace(/[^\w\s-]/g, "").trim();
-  const duration = parseInt(info.videoDetails.lengthSeconds);
-
-  // Create output directory if it doesn't exist
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  const audioPath = path.join(outputDir, `${title}.webm`);
-
-  // Download audio stream
-  const audioStream = ytdl(youtubeUrl, {
-    quality: "highestaudio",
-    filter: "audioonly",
-  });
-
-  const writeStream = fs.createWriteStream(audioPath);
-  audioStream.pipe(writeStream);
-
-  return new Promise((resolve, reject) => {
-    writeStream.on("finish", () => {
-      resolve({
-        audioPath,
-        title,
-        duration,
-      });
-    });
-
-    writeStream.on("error", reject);
-    audioStream.on("error", reject);
-  });
-}
-
 export async function downloadYouTubeAudio(
   youtubeUrl: string,
   outputDir: string,
   cookieFilePath: string | null = null
 ): Promise<DownloadResult> {
-  // Try yt-dlp first (more reliable)
-  try {
-    console.log("Attempting download with yt-dlp...");
-    return await downloadWithYtDlp(youtubeUrl, outputDir, cookieFilePath);
-  } catch (ytDlpError) {
-    console.log(`yt-dlp failed: ${(ytDlpError as Error).message}`);
-    console.log("Falling back to ytdl-core...");
-    
-    // Fallback to ytdl-core
-    try {
-      return await downloadWithYtdlCore(youtubeUrl, outputDir);
-    } catch (ytdlError) {
-      throw new Error(`Both download methods failed. yt-dlp: ${(ytDlpError as Error).message}, ytdl-core: ${(ytdlError as Error).message}`);
-    }
-  }
+  // Try yt-dlp (more reliable)
+  return await downloadWithYtDlp(youtubeUrl, outputDir, cookieFilePath);
 }
