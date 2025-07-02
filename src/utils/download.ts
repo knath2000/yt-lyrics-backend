@@ -33,7 +33,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
     
     // Always include cookies.txt if available, and use a robust user agent
     console.log(`Checking for cookies file at: ${effectiveCookiePath}, Exists: ${hasCookiesFile}`);
-      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" --no-playlist ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+      let infoCmd = `yt-dlp --rm-cache-dir --print \"%(title)s|%(duration)s\" --no-playlist ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     let infoResult: { stdout: string; stderr: string } | null = null;
     try {
@@ -73,7 +73,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
     // Download audio using the same authentication method that worked for info
     console.log(`Downloading audio with yt-dlp...`);
-    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+    const downloadCmd = `yt-dlp --rm-cache-dir -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
     
