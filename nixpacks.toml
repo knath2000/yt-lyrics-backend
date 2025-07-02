@@ -1,12 +1,13 @@
 providers = ["node"]
 
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools", "python311Packages.wheel", "nodejs_20", "ffmpeg", "libsndfile", "yt-dlp", "gcc"]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools", "python311Packages.wheel", "nodejs_20", "ffmpeg", "libsndfile", "yt-dlp", "gcc", "python311Packages.torchvision", "python311Packages.torchaudio"]
 
 [phases.install]
 cmds = [
   "pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu/simple",
   "pip3 install --no-cache-dir demucs",
+"pip3 install --no-cache-dir whisperx"
   "npm install"
 ]
 

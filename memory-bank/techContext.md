@@ -31,9 +31,10 @@ Requires:
   - Added build dependencies: `python311Packages.setuptools`, `python311Packages.wheel`, `libsndfile`, `ffmpeg`, `yt-dlp`.
   - Removed problematic `pip install --upgrade pip` step.
   - Split install commands to first fetch CPU-only PyTorch wheels (`--extra-index-url https://download.pytorch.org/whl/cpu`) then install Demucs.
+  - **Dockerfile PATH modification**: Explicitly added `/home/app/.local/bin` to the `PATH` environment variable in the final Docker image to ensure `demucs` and other Python executables are discoverable.
 
 ### Current Build Status
-- Deployment is now stable and functional on Hugging Face Spaces after resolving circular dependencies and `yt-dlp` authentication issues.
+- Deployment is now stable and functional on Hugging Face Spaces after resolving circular dependencies, `yt-dlp` authentication issues, `demucs` availability, and JSON read errors.
 
 ### Secrets Management
 - `OPENAI_API_KEY`: Environment variable used for authenticating with the OpenAI API for transcription.

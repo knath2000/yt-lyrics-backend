@@ -3,6 +3,7 @@ import fs from "fs";
 import { downloadYouTubeAudio } from "./utils/download.js";
 import { OpenAITranscriber } from "./utils/openaiTranscriber.js";
 import { WordAligner } from "./utils/align.js";
+import { WhisperXProcessor } from "./utils/whisperXProcessor.js";
 import { DemucsProcessor } from "./utils/demucs.js";
 
 export interface JobProcessingResult {
@@ -16,6 +17,7 @@ export class TranscriptionWorker {
   private transcriber: OpenAITranscriber;
   private wordAligner: WordAligner;
   private demucsProcessor: DemucsProcessor;
+  private whisperXProcessor: WhisperXProcessor;
   private workDir: string;
   private cookieFilePath: string | null;
 
@@ -23,6 +25,7 @@ export class TranscriptionWorker {
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
     this.demucsProcessor = new DemucsProcessor();
+    this.whisperXProcessor = new WhisperXProcessor();
     this.workDir = workDir;
     this.cookieFilePath = cookieFilePath;
 
@@ -68,12 +71,21 @@ export class TranscriptionWorker {
       
       // Step 3: Transcribe with Whisper
       const transcription = await this.transcriber.transcribeAudio(audioToTranscribe);
-      console.log(`Transcribed ${transcription.words.length} words`);
+      console.log(`Transcribed text: "${transcription.text.substring(0, 50)}..."`);
       
-      onProgress?.(75, "Aligning word timestamps...");
+      onProgress?.(75, "Aligning word timestamps with WhisperX...");
       
-      // Step 4: Forced alignment for better timing
-      const alignment = await this.wordAligner.alignWords(transcription);
+      // Step 4: Forced alignment using WhisperX
+      const alignedWords = await this.whisperXProcessor.alignAudio(
+        audioToTranscribe,
+        transcription.text
+      );
+      console.log(`Aligned ${alignedWords.length} words with WhisperX`);
+
+      const alignment = await this.wordAligner.alignWords({
+        text: transcription.text,
+        words: alignedWords,
+      });
       
       onProgress?.(90, "Saving results...");
       

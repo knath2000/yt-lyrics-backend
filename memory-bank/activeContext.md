@@ -6,8 +6,12 @@ _Last updated: 2025-07-02_
 - Ensuring robust and authenticated YouTube audio download.
 - Resolving module dependency issues for seamless deployment.
 - Configuring OpenAI API key for transcription.
+- Ensuring `demucs` availability and functionality in the deployed environment.
 
 ## Recent Changes
+- **yt-dlp 403 Forbidden Error Handling**: Implemented `--rm-cache-dir` flag in `yt-dlp` commands to address `403 Forbidden` errors by clearing the cache.
+- **Demucs PATH Fix**: Added `/home/app/.local/bin` to `PATH` in `Dockerfile` to ensure `demucs` executable is discoverable.
+- **JSON Read Error Fix**: Replaced `require("fs").readFileSync` with `import { readFileSync } from "fs";` in `routes/jobs.ts` to fix `ReferenceError: require is not defined`.
 - **OpenAI API Key Configuration**: Confirmed `OPENAI_API_KEY` is read from environment variables.
 - **Secure Cookie Handling**: Implemented secure method to provide YouTube authentication cookies to `yt-dlp` via environment variables, writing to `/tmp/cookies.txt`.
 - **Circular Dependency Fix**: Refactored module imports in `index.ts` and `routes/jobs.ts` using dependency injection to resolve `ReferenceError: Cannot access 'cookieFilePath' before initialization`.
@@ -26,17 +30,18 @@ _Last updated: 2025-07-02_
 - **Build Troubleshooting**: Investigated build logs, planned local Nixpacks CLI testing
 
 ## Next Steps
-1. Verify complete end-to-end functionality of YouTube transcription on Hugging Face Spaces.
+1. Verify complete end-to-end functionality of YouTube transcription with `demucs` enabled on Hugging Face Spaces.
 2. Implement job persistence (SQLite/Redis) for production reliability.
 3. Implement S3 upload for processed audio files.
 4. Add comprehensive logging, monitoring, and timeout handling for large downloads.
 
 ## Known Issues
-- Demucs flag disabled; returning false in `isDemucsAvailable()`.
+- (None currently)
 
 ## Timeline
 | Date       | Milestone                               |
 |------------|-----------------------------------------|
+| 2025-07-02 | Demucs PATH Fix & 403 Error Handling    |
 | 2025-07-02 | OpenAI API Key Confirmed                |
 | 2025-07-02 | YouTube Auth & Dependency Fixes         |
 | 2025-01-30 | Enhanced audio processing pipeline      |

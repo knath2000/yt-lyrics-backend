@@ -1,8 +1,6 @@
-import { TranscriptionWord, TranscriptionResult } from "./whisper.js";
+import { TranscriptionWord, TranscriptionResult } from "./openaiTranscriber.js";
 
-export interface AlignedWord extends TranscriptionWord {
-  confidence: number;
-}
+export interface AlignedWord extends TranscriptionWord {}
 
 export interface AlignmentResult {
   words: AlignedWord[];
@@ -17,7 +15,7 @@ export class WordAligner {
     // TODO: Implement WhisperX or StableTS for better forced alignment
     const alignedWords: AlignedWord[] = transcription.words.map((word) => ({
       ...word,
-      confidence: 0.85, // Mock confidence score
+      
     }));
 
     const srt = this.generateSRT(alignedWords);

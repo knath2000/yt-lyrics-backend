@@ -4,7 +4,17 @@
 
 ### Recent Achievements (Latest First)
 
-**✅ OpenAI API Key Configuration** (Latest)
+**✅ CRITICAL FIX: Demucs Availability & JSON Read Error Resolution** (Latest)
+- **Issue Resolved**: `demucs` command not found in deployed environment; `ReferenceError: require is not defined` when reading job results.
+- **Root Cause**:
+    - `demucs` executable not in `PATH` in final Docker image.
+    - Incorrect `require()` usage in ES Module environment.
+- **Solution Implemented**:
+    - **Demucs PATH Fix**: Added `ENV PATH="/home/app/.local/bin:${PATH}"` to `Dockerfile`.
+    - **JSON Read Error Fix**: Replaced `require("fs").readFileSync` with `import { readFileSync } from "fs";` in `routes/jobs.ts`.
+- **Status**: Deployed and tested, resolving previous runtime errors.
+
+**✅ OpenAI API Key Configuration** (Previous)
 - **Issue Resolved**: Ensured `OPENAI_API_KEY` is correctly read from environment variables for transcription.
 - **Root Cause**: Previous setup used a 'demo-key' fallback, not utilizing the secure environment variable.
 - **Solution Implemented**: Confirmed `TranscriptionWorker` initialization uses `process.env.OPENAI_API_KEY`.
