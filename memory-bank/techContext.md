@@ -23,7 +23,7 @@ Requires:
 ## Deployment & Build
 
 ### Platform
-- **Railway** service connected to the backend GitHub repository. Each push to `main` triggers an automatic build & deploy.
+- **Hugging Face Spaces** service connected to the backend GitHub repository. Each push to `main` triggers an automatic build & deploy.
 
 ### Build Toolchain
 - **Nixpacks** auto-generates the Dockerfile; custom settings live in `nixpacks.toml`.
@@ -33,5 +33,7 @@ Requires:
   - Split install commands to first fetch CPU-only PyTorch wheels (`--extra-index-url https://download.pytorch.org/whl/cpu`) then install Demucs.
 
 ### Current Build Status
-- Deployment succeeds through steps 1-5 but currently fails while installing CPU-only PyTorch wheels on Railway's Nix environment.
-- Next action: reproduce the build locally with `nixpacks build .` and identify missing libs or constraints. 
+- Deployment is now stable and functional on Hugging Face Spaces after resolving circular dependencies and `yt-dlp` authentication issues.
+
+### Secrets Management
+- `YOUTUBE_COOKIES_CONTENT`: Environment variable used to securely provide YouTube authentication cookies to `yt-dlp` at runtime.

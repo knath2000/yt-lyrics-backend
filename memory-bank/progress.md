@@ -1,23 +1,23 @@
 # YouTube Lyrics Backend - Progress Tracking
 
-## Current Status: HUGGING FACE SPACES DEPLOYMENT - YouTube Authentication Fixed ✅
+## Current Status: HUGGING FACE SPACES DEPLOYMENT - Core Functionality Stable ✅
 
 ### Recent Achievements (Latest First)
 
-**✅ CRITICAL FIX: YouTube Authentication & Anti-Bot Measures** (Latest)
-- **Issue Resolved**: YouTube "Sign in to confirm you're not a bot" errors with yt-dlp
-- **Root Cause**: YouTube's 2025 enforcement of PO Tokens and authentication requirements
-- **Multi-Strategy Solution Implemented**:
-  1. **Primary Strategy**: mweb client (`--extractor-args "youtube:player_client=mweb"`) - works without authentication
-  2. **Browser Cookie Fallback**: Automatic cookie extraction from Chrome, Firefox, Safari, Edge
-  3. **User-Agent Spoofing**: Googlebot user-agent as final fallback method
-  4. **Consistent Authentication**: Same method used for both video info and download phases
+**✅ CRITICAL FIX: YouTube Download Reliability & Dependency Management** (Latest)
+- **Issue Resolved**: `yt-dlp` download failures due to YouTube authentication/anti-bot measures and Node.js circular dependencies.
+- **Root Cause**:
+    - YouTube blocking non-authenticated `yt-dlp` requests, especially for playlist URLs.
+    - Node.js ES module circular import between `index.ts` and `routes/jobs.ts`.
+- **Solution Implemented**:
+    - **Secure Cookie Handling**: Implemented a secure method to provide YouTube authentication cookies to `yt-dlp` (via `YOUTUBE_COOKIES_CONTENT` env var and `/tmp/cookies.txt` file creation at runtime).
+    - **Circular Dependency Fix**: Refactored `index.ts` and `routes/jobs.ts` to use dependency injection for `TranscriptionWorker`, breaking the import cycle.
+    - **`yt-dlp` Playlist Handling**: Added `--no-playlist` flag to `yt-dlp` info command to ensure single video processing and avoid playlist-related authentication errors.
 - **Technical Implementation**:
-  - Sequential fallback system with proper error handling
-  - TypeScript-compliant variable initialization and type safety
-  - Comprehensive logging for debugging authentication methods
-  - Based on official [yt-dlp GitHub wiki guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors)
-- **Status**: Successfully deployed to HF Spaces with commit a7b205e
+    - Creation of `src/setup.ts` for cookie initialization.
+    - Refactoring of `index.ts` to manage worker and router dependencies.
+    - Updates to `worker.ts` and `utils/download.ts` to correctly handle `cookieFilePath`.
+- **Status**: Deployed and tested, resolving previous runtime errors.
 
 **✅ MAJOR SUCCESS: TypeScript Build Error Resolution** (Previous)
 - **Issue Identified**: `sh: 1: tsc: not found` error during Docker build process
@@ -44,7 +44,7 @@
 - **Git LFS Installation**: Installed and configured `git-lfs` with Hugging Face custom transfer agent
 - **File Exclusion Strategy**: Updated `.gitignore` to exclude all audio files and temp directories
 - **Large File Handling**: Created comprehensive `.gitattributes` for ML models and audio files
-- **Benefits**: 
+- **Benefits**:
   - Prevents future large file commits
   - Supports ML model versioning if needed
   - Proper audio file exclusion from version control
@@ -117,7 +117,7 @@
 - File handling: Audio format conversion and temporary storage cleanup
 - Error handling: Comprehensive error responses and logging
 
-### **✅ Deployment Pipeline - COMPLETE**  
+### **✅ Deployment Pipeline - COMPLETE**
 - Docker configuration: Optimized multi-stage build for HF Spaces
 - Git management: LFS setup, large file exclusion, clean history
 - CI/CD: Automatic deployment on git push to HF Spaces
@@ -129,6 +129,4 @@
 - Build optimization: Layer caching, dependency separation, production-only runtime
 - Resource management: Process isolation, memory optimization, file cleanup
 
-**Overall Project Status: DEPLOYMENT READY & BUILDING** 🚀 
-
-Current status: Hugging Face Spaces should be building successfully with the YouTube authentication fix. Monitor build logs for completion and then test the deployed application. 
+**Overall Project Status: CORE FUNCTIONALITY STABLE - READY FOR FEATURE ENHANCEMENT 🚀**
