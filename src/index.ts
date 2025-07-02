@@ -1,11 +1,12 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import jobsRouter from "./routes/jobs.js";
+import createJobsRouter from "./routes/jobs.js"; // Import the function
 import { initializeCookieJar } from "./setup.js"; // Import the new setup function
+import { TranscriptionWorker } from "./worker.js"; // Import TranscriptionWorker
 
 // Initialize the cookie jar at application startup
-export const cookieFilePath = initializeCookieJar();
+const cookieFilePath = initializeCookieJar();
 
 const app = express();
 
@@ -41,7 +42,15 @@ if (isDevelopment) {
 
 app.use(express.json());
 
-app.use("/api/jobs", jobsRouter);
+// Create TranscriptionWorker instance
+const worker = new TranscriptionWorker(
+  process.env.OPENAI_API_KEY || "demo-key",
+  undefined, // workDir, using default
+  cookieFilePath // Pass the cookie file path
+);
+
+// Create and use the jobs router, injecting the worker
+app.use("/api/jobs", createJobsRouter(worker));
 
 // Health check endpoint
 app.get("/health", (req, res) => {
