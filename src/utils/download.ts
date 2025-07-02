@@ -13,6 +13,12 @@ export interface DownloadResult {
 }
 
 async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise<DownloadResult> {
+  // 0. Check for provided cookies.txt at project root (works in HF Spaces)
+  const cookiePath = path.resolve(__dirname, '../../cookies.txt');
+  const hasCookiesFile = fs.existsSync(cookiePath);
+
+  const cookieArg = hasCookiesFile ? `--cookies "${cookiePath}"` : "";
+
   // Create output directory if it doesn't exist
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -21,7 +27,9 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
   try {
     // Strategy 1: Try with mweb client (often works without authentication)
     console.log(`Getting video info for: ${youtubeUrl}`);
-    let infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --extractor-args "youtube:player_client=mweb" "${youtubeUrl}"`;
+    let infoCmd = hasCookiesFile
+      ? `yt-dlp --print \"%(title)s|%(duration)s\" ${cookieArg} --no-warnings \"${youtubeUrl}\"`
+      : `yt-dlp --print \"%(title)s|%(duration)s\" --no-warnings --extractor-args \"youtube:player_client=mweb\" \"${youtubeUrl}\"`;
     
     let infoResult: { stdout: string; stderr: string } | null = null;
     try {
@@ -29,33 +37,38 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
     } catch (mwebError) {
       console.log(`mweb client failed, trying with browser cookies...`);
       
-      // Strategy 2: Try with browser cookies (Chrome first, then Firefox)
-      const browsers = ['chrome', 'firefox', 'safari', 'edge'];
-      let cookieSuccess = false;
-      
-      for (const browser of browsers) {
-        try {
-          console.log(`Attempting with ${browser} cookies...`);
-          infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --cookies-from-browser ${browser} "${youtubeUrl}"`;
-          infoResult = await execAsync(infoCmd);
-          cookieSuccess = true;
-          console.log(`Successfully authenticated with ${browser} cookies`);
-          break;
-        } catch (browserError) {
-          console.log(`${browser} cookies failed: ${browserError}`);
-          continue;
+      // If we already attempted with explicit cookies.txt and failed, don't retry cookie browsers
+      if (!hasCookiesFile) {
+        // Strategy 2: Try with browser cookies (Chrome first, then Firefox)
+        const browsers = ['chrome', 'firefox', 'safari', 'edge'];
+        let cookieSuccess = false;
+        
+        for (const browser of browsers) {
+          try {
+            console.log(`Attempting with ${browser} cookies...`);
+            infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --cookies-from-browser ${browser} "${youtubeUrl}"`;
+            infoResult = await execAsync(infoCmd);
+            cookieSuccess = true;
+            console.log(`Successfully authenticated with ${browser} cookies`);
+            break;
+          } catch (browserError) {
+            console.log(`${browser} cookies failed: ${browserError}`);
+            continue;
+          }
         }
-      }
-      
-      if (!cookieSuccess) {
-        // Strategy 3: Try alternative extractors or basic approach
-        console.log(`Browser cookies failed, trying basic approach with different user agent...`);
-        infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" "${youtubeUrl}"`;
-        try {
-          infoResult = await execAsync(infoCmd);
-        } catch (basicError) {
-          throw new Error(`All authentication methods failed. Last error: ${basicError}`);
+        
+        if (!cookieSuccess) {
+          // Strategy 3: Try alternative extractors or basic approach
+          console.log(`Browser cookies failed, trying basic approach with different user agent...`);
+          infoCmd = `yt-dlp --print "%(title)s|%(duration)s" --no-warnings --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" "${youtubeUrl}"`;
+          try {
+            infoResult = await execAsync(infoCmd);
+          } catch (basicError) {
+            throw new Error(`All authentication methods failed. Last error: ${basicError}`);
+          }
         }
+      } else {
+        // if cookies.txt worked, skip further authentication fallback
       }
     }
     
