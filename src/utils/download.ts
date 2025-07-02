@@ -19,7 +19,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
   const cookiePath = path.resolve(process.cwd(), 'cookies.txt');
   const hasCookiesFile = fs.existsSync(cookiePath);
 
-  const cookieArg = hasCookiesFile ? `--cookies "${cookiePath}"` : "";
+  const cookieArg = hasCookiesFile ? `--cookies ${cookiePath}` : "";
 
   // Create output directory if it doesn't exist
   if (!fs.existsSync(outputDir)) {
@@ -32,7 +32,8 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
     const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     
     // Always include cookies.txt if available, and use a robust user agent
-    let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${cookieArg} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+    console.log(`Checking for cookies file at: ${cookiePath}, Exists: ${hasCookiesFile}`);
+      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${hasCookiesFile ? `--cookies "${cookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     let infoResult: { stdout: string; stderr: string } | null = null;
     try {
@@ -72,7 +73,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
 
     // Download audio using the same authentication method that worked for info
     console.log(`Downloading audio with yt-dlp...`);
-    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${cookieArg} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${cookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
     
