@@ -17,12 +17,14 @@ export class TranscriptionWorker {
   private wordAligner: WordAligner;
   private demucsProcessor: DemucsProcessor;
   private workDir: string;
+  private cookieFilePath: string | null;
 
-  constructor(openaiApiKey: string, workDir = "./temp") {
+  constructor(openaiApiKey: string, workDir = "./temp", cookieFilePath: string | null = null) {
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
     this.demucsProcessor = new DemucsProcessor();
     this.workDir = workDir;
+    this.cookieFilePath = cookieFilePath;
 
     // Ensure work directory exists
     if (!fs.existsSync(this.workDir)) {
@@ -41,7 +43,7 @@ export class TranscriptionWorker {
       onProgress?.(5, "Downloading YouTube audio...");
       
       // Step 1: Download YouTube audio
-      const downloadResult = await downloadYouTubeAudio(youtubeUrl, jobDir);
+      const downloadResult = await downloadYouTubeAudio(youtubeUrl, jobDir, this.cookieFilePath);
       console.log(`Downloaded: ${downloadResult.title}`);
       
       onProgress?.(20, "Processing audio...");

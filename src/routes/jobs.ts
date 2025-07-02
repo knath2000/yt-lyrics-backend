@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { TranscriptionWorker } from "../worker.js";
+import { cookieFilePath } from "../index.js"; // Import cookieFilePath from index.ts
 
 interface Job {
   id: string;
@@ -19,7 +20,9 @@ const router = Router();
 
 // Initialize worker
 const worker = new TranscriptionWorker(
-  process.env.OPENAI_API_KEY || "demo-key"
+  process.env.OPENAI_API_KEY || "demo-key",
+  undefined, // Use default workDir
+  cookieFilePath // Pass the cookie file path
 );
 
 // POST /api/jobs

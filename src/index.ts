@@ -2,6 +2,10 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import jobsRouter from "./routes/jobs.js";
+import { initializeCookieJar } from "./setup.js"; // Import the new setup function
+
+// Initialize the cookie jar at application startup
+export const cookieFilePath = initializeCookieJar();
 
 const app = express();
 

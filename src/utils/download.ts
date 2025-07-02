@@ -14,12 +14,12 @@ export interface DownloadResult {
   duration: number;
 }
 
-async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise<DownloadResult> {
-  // 0. Check for provided cookies.txt at project root (works in HF Spaces)
-  const cookiePath = path.resolve(process.cwd(), 'cookies.txt');
-  const hasCookiesFile = fs.existsSync(cookiePath);
+async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFilePath: string | null): Promise<DownloadResult> {
+  // Use the provided cookieFilePath if available, otherwise check for cookies.txt at project root
+  const effectiveCookiePath = cookieFilePath || path.resolve(process.cwd(), 'cookies.txt');
+  const hasCookiesFile = effectiveCookiePath ? fs.existsSync(effectiveCookiePath) : false;
 
-  const cookieArg = hasCookiesFile ? `--cookies ${cookiePath}` : "";
+  const cookieArg = hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : "";
 
   // Create output directory if it doesn't exist
   if (!fs.existsSync(outputDir)) {
@@ -32,8 +32,8 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
     const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     
     // Always include cookies.txt if available, and use a robust user agent
-    console.log(`Checking for cookies file at: ${cookiePath}, Exists: ${hasCookiesFile}`);
-      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${hasCookiesFile ? `--cookies "${cookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+    console.log(`Checking for cookies file at: ${effectiveCookiePath}, Exists: ${hasCookiesFile}`);
+      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     let infoResult: { stdout: string; stderr: string } | null = null;
     try {
@@ -73,7 +73,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string): Promise
 
     // Download audio using the same authentication method that worked for info
     console.log(`Downloading audio with yt-dlp...`);
-    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${cookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
     
     const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
     
@@ -166,12 +166,13 @@ async function downloadWithYtdlCore(youtubeUrl: string, outputDir: string): Prom
 
 export async function downloadYouTubeAudio(
   youtubeUrl: string,
-  outputDir: string
+  outputDir: string,
+  cookieFilePath: string | null = null
 ): Promise<DownloadResult> {
   // Try yt-dlp first (more reliable)
   try {
     console.log("Attempting download with yt-dlp...");
-    return await downloadWithYtDlp(youtubeUrl, outputDir);
+    return await downloadWithYtDlp(youtubeUrl, outputDir, cookieFilePath);
   } catch (ytDlpError) {
     console.log(`yt-dlp failed: ${(ytDlpError as Error).message}`);
     console.log("Falling back to ytdl-core...");
