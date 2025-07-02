@@ -10,7 +10,7 @@ export interface TranscriptionWord {
 
 export class WhisperXProcessor {
   async alignAudio(audioPath: string, transcriptionText: string): Promise<TranscriptionWord[]> {
-    // Save transcription text to a temporary file
+    // Save transcription texts to a temporary file
     const tempTxtPath = `${audioPath}.txt`;
     fs.writeFileSync(tempTxtPath, transcriptionText);
 
