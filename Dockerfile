@@ -1,55 +1,80 @@
-# Use Debian-based Python image for better PyPI wheel compatibility
-FROM python:3.11-slim as base
+# Multi-stage Docker build for YouTube Lyrics Backend on Hugging Face Spaces
+# Optimized for Python ML dependencies + Node.js API server
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    NODE_ENV=production
+# Stage 1: Python dependencies and ML models
+FROM python:3.11-slim as python-builder
 
-# Install system dependencies including Node.js
+# Install system dependencies for audio processing
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
     ffmpeg \
-    libsndfile1 \
-    libopenblas-dev \
-    libgomp1 \
-    pkg-config \
-    git \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    libsndfile1-dev \
+    gcc \
+    g++ \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Set Python working directory
+WORKDIR /app
+
+# Copy Python requirements
+COPY requirements.txt .
+
+# Install PyTorch CPU-only and other Python dependencies
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Node.js application
+FROM node:20-slim as node-builder
 
 WORKDIR /app
 
-# Copy dependency files
+# Copy package files
 COPY package*.json ./
-COPY requirements.txt ./
 
 # Install Node.js dependencies
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Install Python dependencies with CPU-only PyTorch
-RUN pip install torch==2.2.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
-RUN pip install demucs==4.0.1
-RUN pip install -r requirements.txt
+RUN npm ci --only=production
 
 # Copy source code
-COPY . .
+COPY src/ ./src/
+COPY tsconfig.json ./
 
 # Build TypeScript
 RUN npm run build
 
-# Health check endpoint
+# Stage 3: Production runtime
+FROM python:3.11-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd --create-home --shell /bin/bash app
+USER app
+WORKDIR /home/app
+
+# Copy Python environment from builder
+COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-builder /usr/local/bin /usr/local/bin
+
+# Copy Node.js application
+COPY --from=node-builder /app/node_modules ./node_modules
+COPY --from=node-builder /app/dist ./dist
+COPY --from=node-builder /app/package*.json ./
+
+# Create temp directory for audio processing
+RUN mkdir -p temp
+
+# Expose Hugging Face Spaces port
+EXPOSE 7860
+
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:7860/health || exit 1
 
-# Expose port 7860 (Hugging Face Spaces standard)
-EXPOSE 7860
-
-# Set PORT environment variable for Hugging Face Spaces
-ENV PORT=7860
-
 # Start the application
-CMD ["node", "dist/index.js"] 
+CMD ["npm", "start"] 

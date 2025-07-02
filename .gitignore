@@ -12,9 +12,17 @@ dist/
 .env.local
 .env.production
 
-# Temporary files
+# Temporary files and audio processing
 temp/
 *.tmp
+*.wav
+*.mp3
+*.mp4
+*.m4a
+*.webm
+*.aac
+*.flac
+*.ogg
 
 # Logs
 logs/
@@ -37,3 +45,8 @@ coverage/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Python cache (for any Python scripts)
+__pycache__/
+*.py[cod]
+*$py.class
