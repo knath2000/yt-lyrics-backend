@@ -70,19 +70,19 @@ export class DemucsProcessor {
       );
     }
 
-    // Use more compatible Demucs options
+    // Use compatible Demucs v4+ options
     const cmdParts = [
-      'demucs',
       '--two-stems=vocals',
       '--mp3',  // Use MP3 output format (more compatible)
-      '--device', 'cpu',  // Force CPU to avoid CUDA issues
+      '--device=cpu',  // Force CPU to avoid CUDA issues (note: =cpu not space)
       '-o', `"${outputDir}"`,
     ];
 
+    // Note: --chunks is not available in demucs v4+, so we skip memory-safe mode optimization
+    // Memory usage will be managed by the system itself
     if (this.memorySafeMode) {
-      cmdParts.unshift('--chunks', '1'); // Process in smaller chunks to reduce memory
-      // Consider adding --overlap 0.25 or other memory-saving flags
-      // Also, dynamically adjust model selection for even smaller models if desired
+      console.log('Memory-safe mode enabled, but --chunks not available in demucs v4+');
+      // Could potentially use --segment if available in future versions
     }
 
     if (this.defaultModel) {
