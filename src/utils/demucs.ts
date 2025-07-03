@@ -17,6 +17,13 @@ export interface DemucsResult {
 }
 
 export class DemucsProcessor {
+  private defaultModel: string | null;
+  private memorySafeMode: boolean;
+
+  constructor(defaultModel: string | null = null, memorySafeMode: boolean = false) {
+    this.defaultModel = defaultModel;
+    this.memorySafeMode = memorySafeMode;
+  }
   private async checkAudioBackends(): Promise<AudioBackendInfo> {
     const info: AudioBackendInfo = {
       available: false,
@@ -64,20 +71,31 @@ export class DemucsProcessor {
     }
 
     // Use more compatible Demucs options
-    const cmd = [
+    const cmdParts = [
       'demucs',
       '--two-stems=vocals',
       '--mp3',  // Use MP3 output format (more compatible)
       '--device', 'cpu',  // Force CPU to avoid CUDA issues
       '-o', `"${outputDir}"`,
-      `"${input}"`
-    ].join(' ');
+    ];
 
-    console.log(`Running Demucs with command: ${cmd}`);
+    if (this.memorySafeMode) {
+      cmdParts.unshift('--chunks', '1'); // Process in smaller chunks to reduce memory
+      // Consider adding --overlap 0.25 or other memory-saving flags
+      // Also, dynamically adjust model selection for even smaller models if desired
+    }
+
+    if (this.defaultModel) {
+      cmdParts.unshift('-n', this.defaultModel);
+    }
+
+    const cmdString = `demucs ${cmdParts.join(' ')} "${input}"`;
+
+    console.log(`Running Demucs with command: ${cmdString}`);
     console.log(`Available audio backends: ${backendInfo.backends.join(', ')}`);
 
     try {
-      const { stdout, stderr } = await execAsync(cmd, { 
+      const { stdout, stderr } = await execAsync(cmdString, { 
         maxBuffer: 1024 * 1024 * 10,
         env: {
           ...process.env,
@@ -162,6 +180,10 @@ export class DemucsProcessor {
       vocalsPath,
       instrumentalsPath,
     };
+  }
+
+  isMemorySafe(): boolean {
+    return this.memorySafeMode;
   }
 
   async isDemucsAvailable(): Promise<boolean> {

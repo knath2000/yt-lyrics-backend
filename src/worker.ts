@@ -22,10 +22,16 @@ export class TranscriptionWorker {
   private cookieFilePath: string | null;
   private activeJobs: Set<string> = new Set(); // 🆕 Track active jobs
 
-  constructor(openaiApiKey: string, workDir = "./temp", cookieFilePath: string | null = null) {
+  constructor(
+    openaiApiKey: string, 
+    workDir = "./temp", 
+    cookieFilePath: string | null = null,
+    demucsModel: string = "htdemucs_ft", // Default to a more performant model
+    demucsMemorySafeMode: boolean = true // Default to memory-safe mode
+  ) {
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
-    this.demucsProcessor = new DemucsProcessor();
+    this.demucsProcessor = new DemucsProcessor(demucsModel, demucsMemorySafeMode);
     this.whisperXProcessor = new WhisperXProcessor();
     this.workDir = workDir;
     this.cookieFilePath = cookieFilePath;
@@ -60,13 +66,21 @@ export class TranscriptionWorker {
       // Step 2: Optional vocal separation with Demucs
       const demucsAvailable = await this.demucsProcessor.isDemucsAvailable();
       if (demucsAvailable) {
-        onProgress?.(30, "Separating vocals with Demucs...");
-        const demucsResult = await this.demucsProcessor.separateVocals(
-          downloadResult.audioPath,
-          jobDir
-        );
-        audioToTranscribe = demucsResult.vocalsPath;
-        console.log("Vocal separation completed");
+        // If in memory-safe mode and audio duration is long, skip Demucs
+        // Assuming 600 seconds (10 minutes) as the threshold for "long" audio for memory-safe mode
+        const DEMUCS_SKIP_THRESHOLD_SECONDS = 600;
+        if (this.demucsProcessor.isMemorySafe() && downloadResult.duration > DEMUCS_SKIP_THRESHOLD_SECONDS) {
+          console.log(`Demucs skipped for long audio (${downloadResult.duration}s) in memory-safe mode.`);
+          onProgress?.(30, "Skipping vocal separation for long audio in memory-safe mode...");
+        } else {
+          onProgress?.(30, "Separating vocals with Demucs...");
+          const demucsResult = await this.demucsProcessor.separateVocals(
+            downloadResult.audioPath,
+            jobDir
+          );
+          audioToTranscribe = demucsResult.vocalsPath;
+          console.log("Vocal separation completed");
+        }
       } else {
         console.log("Demucs not available, using original audio");
       }

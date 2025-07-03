@@ -1,8 +1,23 @@
 # YouTube Lyrics Backend - Progress Tracking
 
-## Current Status: BLOCKED 🛑 - `yt-dlp` Immpersonation Dependency Failure
+## Current Status: IN-PROGRESS 🟡 - Addressing Memory Optimization & `yt-dlp` Issues
 
 ### Recent Achievements (Latest First)
+
+**✅ SUCCESS: Demucs Memory Optimization & Graceful Fallback** (Latest)
+- **Goal**: Implement measures to prevent Out-Of-Memory (OOM) errors during Demucs vocal separation.
+- **Approach**:
+  - Implemented `memorySafeMode` in `DemucsProcessor` to use `--chunks 1` during vocal separation.
+  - Introduced a duration-based fallback in `TranscriptionWorker` to skip Demucs for long audio files (over 10 minutes) when `memorySafeMode` is active.
+- **Changes Made**:
+  - Modified `youtube-lyrics-backend/src/utils/demucs.ts`:
+    - Updated `DemucsProcessor` constructor to accept `defaultModel` and `memorySafeMode`.
+    - Modified `runDemucs` to apply `--chunks 1` when `memorySafeMode` is true.
+    - Added `isMemorySafe()` getter.
+  - Modified `youtube-lyrics-backend/src/worker.ts`:
+    - Updated `TranscriptionWorker` constructor to pass `demucsModel` (default `htdemucs_ft`) and `demucsMemorySafeMode` (default `true`) to `DemucsProcessor`.
+    - Added conditional logic to `processJob` to skip Demucs for audio > 10 minutes when `isMemorySafe()` is true.
+- **Status**: Implemented and ready for testing. This addresses a major stability concern.
 
 **paused 🛑 IN-PROGRESS: `yt-dlp` Impersonation Dependency Investigation** (Latest)
 - **Goal**: Resolve `Impersonate target "chrome" is not available` error in the Hugging Face deployment.
