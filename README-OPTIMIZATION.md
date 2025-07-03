@@ -171,10 +171,8 @@ Following [AWS optimization patterns](https://www.javierinthecloud.com/optimizin
 **Solution**: Pin to Demucs 4.x series (`demucs>=4.0,<5`)
 - Ships pre-built wheels for Linux/Python 3.10
 - Fixes packaging bug present in 3.x series
-- Stable and widely used (see [Hugging Face implementations](https://huggingface.co/spaces/Kajise/Demucs_v4-FT_4s))
+- Stable and widely used.
 
 **Applied in**: `requirements.txt` and `Dockerfile`
 
----
-
-**Note**: This optimization maintains full application functionality while dramatically reducing image size and enabling successful Railway deployments. 
+ 
