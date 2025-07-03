@@ -1,6 +1,6 @@
 # YouTube Lyrics Backend - Progress Tracking
 
-## Current Status: BLOCKED 🛑 - `yt-dlp` Impersonation Dependency Failure
+## Current Status: BLOCKED 🛑 - `yt-dlp` Immpersonation Dependency Failure
 
 ### Recent Achievements (Latest First)
 
