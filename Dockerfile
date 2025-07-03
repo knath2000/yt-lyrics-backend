@@ -21,7 +21,8 @@ COPY requirements.txt .
 
 # Install PyTorch CPU-only and other Python dependencies
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt --upgrade
+RUN pip install --no-cache-dir "yt-dlp[default]" "curl_cffi"
 
 # Stage 2: Node.js application build
 FROM node:20-slim as node-builder
@@ -49,7 +50,6 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
     curl \
-    libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20 in the Python container
@@ -85,4 +85,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:7860/health || exit 1
 
 # Start the application
-CMD ["npm", "start"] 
+CMD ["npm", "start"]
