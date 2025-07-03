@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p .",
+    "build": "npx tsc -p .",
     "start": "node dist/index.js"
   },
   "dependencies": {
