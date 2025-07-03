@@ -26,7 +26,7 @@ export class WhisperXProcessor {
         "--compute_type", "float16", // Use float16 for better performance on CPU
         "--output_dir", path.dirname(audioPath),
         "--output_format", "json",
-        "--output", path.join(path.dirname(audioPath), `${path.basename(audioPath).split(".")[0]}.json`),
+        
         "--model", "base", // Use a base model for alignment
         "--align_model", "Wav2Vec2-Large-v2", // Specify an alignment model
       ]);
