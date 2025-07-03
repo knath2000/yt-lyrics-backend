@@ -1,33 +1,46 @@
 # Active Context - Backend
 
-_Last updated: 2025-07-03_
+_Last updated: 2025-03-07_
 
 ## Current Focus
-- **CRITICAL ISSUE**: Resolving `yt-dlp` `Impersonate target "chrome" is not available` error in the Hugging Face deployment. This is the primary blocker.
-- The transcription pipeline fails at the first step, preventing any further processing.
+- **DEPLOYMENT SWITCH**: Moved from Hugging Face Spaces to Railway due to yt-dlp impersonation issues
+- **NEW CRITICAL ISSUE**: WhisperX alignment failing on Railway with argument parsing error
+- **Error**: `whisperx: error: unrecognized arguments: --audio ... --transcript ...`
+- The transcription pipeline now fails at the WhisperX alignment step (step 4) instead of download step
 
 ## Recent Changes & Investigations
-- **Failed `yt-dlp` Dependency Fixes**:
+- **Platform Migration**: Switched from Hugging Face Spaces to Railway deployment due to unresolvable yt-dlp impersonation issues
+- **NEW WhisperX Command Line Error**: Railway logs show WhisperX CLI argument parsing failure:
+  ```
+  whisperx: error: unrecognized arguments: --audio temp/4f21b0b7-f417-496b-a7ea-80d763e2c2af/Nightcrawler.mp3 --transcript temp/4f21b0b7-f417-496b-a7ea-80d763e2c2af/Nightcrawler.mp3.txt
+  ```
+- **Previous Failed `yt-dlp` Dependency Fixes** (resolved by platform switch):
   - Attempted to install `yt-dlp[default,curl-cffi]` via `nixpacks.toml`.
   - Attempted to add `curl` and `libcurl` to `nixPkgs` in `nixpacks.toml`.
-  - Both attempts resulted in the same `Impersonate target "chrome" is not available` error, indicating a deeper issue with the Nixpacks build environment's ability to compile `curl_cffi`.
+  - Both attempts resulted in the same `Impersonate target "chrome" is not available` error.
 
 ## Next Steps
-1. **Pause and Re-evaluate**: The immediate priority is to stop further attempts and document the current state of the issue for future investigation.
-2. **Future Investigation**:
-   - Research how to correctly provide C-bindings for Python packages in a Nix/Nixpacks environment.
-   - Explore alternative impersonation methods or `yt-dlp` forks that may not have the same dependencies.
-   - Consider removing the `--impersonate` flag temporarily to see if the `403 Forbidden` error can be resolved with other methods (e.g., more advanced cookie handling, proxy rotation).
+1. **IMMEDIATE**: Fix WhisperX CLI argument parsing issue on Railway
+   - Research current WhisperX CLI interface and correct argument syntax
+   - Update `whisperXProcessor.ts` to use proper CLI arguments
+   - Test on Railway deployment environment
+2. **Future Investigation** (resolved via platform switch):
+   - ~~Research how to correctly provide C-bindings for Python packages in a Nix/Nixpacks environment~~
+   - ~~Explore alternative impersonation methods or `yt-dlp` forks that may not have the same dependencies~~
+   - ~~Consider removing the `--impersonate` flag temporarily~~
 
 ## Known Issues
-- **`yt-dlp` impersonation fails in production**: The `Impersonate target "chrome" is not available` error persists despite attempts to install `curl_cffi` and its dependencies.
+- **WhisperX CLI argument parsing error on Railway**: The command line interface for WhisperX is rejecting `--audio` and `--transcript` arguments with "unrecognized arguments" error
+- **RESOLVED**: `yt-dlp` impersonation fails in HF Spaces - resolved by migrating to Railway platform
 
 ## Timeline
 | Date       | Milestone                               |
 |------------|-----------------------------------------|
-| 2025-07-03 | Paused debugging of `yt-dlp` impersonation issue. |
-| 2025-07-03 | Attempted to fix impersonation issue by adding `curl` and `libcurl` to `nixPkgs`. |
-| 2025-07-03 | Attempted to fix impersonation issue by installing `yt-dlp[default,curl-cffi]`. |
+| 2025-03-07 | **NEW ISSUE**: WhisperX CLI argument parsing failure on Railway deployment |
+| 2025-03-07 | **PLATFORM SWITCH**: Migrated from Hugging Face Spaces to Railway |
+| 2025-07-03 | Paused debugging of `yt-dlp` impersonation issue (HF Spaces). |
+| 2025-07-03 | Attempted to fix impersonation issue by adding `curl` and `libcurl` to `nixPkgs` (HF Spaces). |
+| 2025-07-03 | Attempted to fix impersonation issue by installing `yt-dlp[default,curl-cffi]` (HF Spaces). |
 | 2025-07-03 | Implemented `--impersonate chrome` and consistent headers for `yt-dlp`. |
 | 2025-07-03 | Implemented `whisperx` for forced alignment. |
 | 2025-07-02 | Demucs PATH Fix & 403 Error Handling    |

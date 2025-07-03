@@ -16,18 +16,15 @@ export class WhisperXProcessor {
 
     return new Promise((resolve, reject) => {
       // Command to run whisperx for forced alignment
-      // Using --output_dir to specify where to save the JSON output
-      // Using --output_format json to get JSON output
-      // Using --align_model Basic for a simple alignment model
+      // WhisperX align uses positional arguments: whisperx align <audio> <transcript> [options]
       const whisperXProcess = spawn("whisperx", [
-        "align", // Use the align subcommand
-        "--audio", audioPath,
-        "--transcript", tempTxtPath, // Pass the transcription text file
+        "align",
+        audioPath,           // First positional argument: audio file
+        tempTxtPath,         // Second positional argument: transcript file
         "--compute_type", "float16", // Use float16 for better performance on CPU
         "--output_dir", path.dirname(audioPath),
         "--output_format", "json",
-        
-        "--model", "base", // Use a base model for alignment
+        "--model", "base",   // Use a base model for alignment
         "--align_model", "Wav2Vec2-Large-v2", // Specify an alignment model
       ]);
 
