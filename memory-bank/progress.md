@@ -1,10 +1,20 @@
 # YouTube Lyrics Backend - Progress Tracking
 
-## Current Status: HUGGING FACE SPACES DEPLOYMENT - Core Functionality Stable ✅
+## Current Status: BLOCKED 🛑 - `yt-dlp` Download Failures
 
 ### Recent Achievements (Latest First)
 
-**✅ CRITICAL FIX: Demucs Availability & JSON Read Error Resolution** (Latest)
+**🔄 IN-PROGRESS: Forced Alignment Implementation** (Latest)
+- **Goal**: Implement word-level timestamps, as `gpt-4o-mini-transcribe` does not support `verbose_json`.
+- **Approach**: Integrate `whisperx` for forced alignment.
+- **Changes Made**:
+  - Added `whisperx` and `pydub` to `requirements.txt`.
+  - Created `youtube-lyrics-backend/src/utils/whisperXProcessor.ts` to handle `whisperx` CLI execution.
+  - Modified `youtube-lyrics-backend/src/worker.ts` to use `WhisperXProcessor` for alignment.
+  - Updated `youtube-lyrics-backend/nixpacks.toml` to install `whisperx` and its dependencies.
+- **Status**: Implementation complete, but blocked by download issue.
+
+**✅ CRITICAL FIX: Demucs Availability & JSON Read Error Resolution** (Previous)
 - **Issue Resolved**: `demucs` command not found in deployed environment; `ReferenceError: require is not defined` when reading job results.
 - **Root Cause**:
     - `demucs` executable not in `PATH` in final Docker image.
@@ -107,7 +117,7 @@
 ## Next Milestones
 
 ### **Immediate (Post-Deployment)**
-- ✅ **Monitor Build Success** - Current build should complete successfully
+- 🛑 **Resolve `yt-dlp` 403 Forbidden Error** - This is the current blocker.
 - 🔄 **Verify Deployment** - Test application startup and health endpoint
 - ✅ **Environment Configuration** - Add `OPENAI_API_KEY` in Spaces settings
 - 🔄 **API Testing** - Validate all endpoints: `/health`, `/api/jobs/*`

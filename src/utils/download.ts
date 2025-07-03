@@ -29,11 +29,20 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
   try {
     console.log(`Getting video info for: ${youtubeUrl}`);
     // Use a more robust user agent to mimic a real browser
-    const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    
-    // Always include cookies.txt if available, and use a robust user agent
+    // Define common yt-dlp options including impersonation and headers
+    const commonYtDlpArgs = [
+      "--rm-cache-dir",
+      "--no-playlist",
+      "--no-warnings",
+      "--impersonate chrome", // Impersonate Chrome for better evasion
+      hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : "",
+      `--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`, // Updated User-Agent
+      `--add-header "Accept-Language: en-US,en;q=0.9"`, // Add Accept-Language header
+      `--referer "https://www.youtube.com/"` // Ensure consistent Referer header
+    ].filter(Boolean).join(" "); // Filter out empty strings and join
+
     console.log(`Checking for cookies file at: ${effectiveCookiePath}, Exists: ${hasCookiesFile}`);
-      let infoCmd = `yt-dlp --rm-cache-dir --print \"%(title)s|%(duration)s\" --no-playlist ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" \"${youtubeUrl}\"`;
+    let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${commonYtDlpArgs} \"${youtubeUrl}\"`;
     
     let infoResult: { stdout: string; stderr: string } | null = null;
     try {
@@ -73,7 +82,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
     // Download audio using the same authentication method that worked for info
     console.log(`Downloading audio with yt-dlp...`);
-    const downloadCmd = `yt-dlp --rm-cache-dir -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${outputTemplate}" ${hasCookiesFile ? `--cookies "${effectiveCookiePath}"` : ""} --no-warnings --user-agent \"${userAgent}\" --referer "https://www.youtube.com/" \"${youtubeUrl}\"`;
+    const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" ${commonYtDlpArgs} \"${youtubeUrl}\"`;
     
     const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
     
