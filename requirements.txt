@@ -24,3 +24,5 @@ python-dotenv>=1.0.0
 
 # Optional: Audio alignment and processing
 scipy>=1.10.0 
+# For yt-dlp impersonation
+curl_cffi==0.7.1

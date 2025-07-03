@@ -1,10 +1,17 @@
 # YouTube Lyrics Backend - Progress Tracking
 
-## Current Status: BLOCKED 🛑 - `yt-dlp` Download Failures
+## Current Status: BLOCKED 🛑 - `yt-dlp` Impersonation Dependency Failure
 
 ### Recent Achievements (Latest First)
 
-**🔄 IN-PROGRESS: Forced Alignment Implementation** (Latest)
+**paused 🛑 IN-PROGRESS: `yt-dlp` Impersonation Dependency Investigation** (Latest)
+- **Goal**: Resolve `Impersonate target "chrome" is not available` error in the Hugging Face deployment.
+- **Approach**:
+  - Attempted to install `yt-dlp` with `curl_cffi` extra via `nixpacks.toml`.
+  - Attempted to add `curl` and `libcurl` as system dependencies in `nixpacks.toml`.
+- **Status**: All attempts have failed, resulting in the same error. The investigation is currently paused to document the findings.
+
+**🔄 IN-PROGRESS: Forced Alignment Implementation**
 - **Goal**: Implement word-level timestamps, as `gpt-4o-mini-transcribe` does not support `verbose_json`.
 - **Approach**: Integrate `whisperx` for forced alignment.
 - **Changes Made**:
@@ -117,7 +124,7 @@
 ## Next Milestones
 
 ### **Immediate (Post-Deployment)**
-- 🛑 **Resolve `yt-dlp` 403 Forbidden Error** - This is the current blocker.
+- 🛑 **Resolve `yt-dlp` Impersonation Dependency Failure** - This is the current blocker.
 - 🔄 **Verify Deployment** - Test application startup and health endpoint
 - ✅ **Environment Configuration** - Add `OPENAI_API_KEY` in Spaces settings
 - 🔄 **API Testing** - Validate all endpoints: `/health`, `/api/jobs/*`

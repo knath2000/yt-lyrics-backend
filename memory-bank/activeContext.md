@@ -3,39 +3,32 @@
 _Last updated: 2025-07-03_
 
 ## Current Focus
-- **CRITICAL ISSUE**: Resolving `yt-dlp` download failures due to `HTTP Error 403: Forbidden`. This is the primary blocker.
+- **CRITICAL ISSUE**: Resolving `yt-dlp` `Impersonate target "chrome" is not available` error in the Hugging Face deployment. This is the primary blocker.
 - The transcription pipeline fails at the first step, preventing any further processing.
 
 ## Recent Changes & Investigations
-- **Forced Alignment Implementation**:
-  - Integrated `whisperx` to provide word-level timestamps, as `gpt-4o-mini-transcribe` does not support `verbose_json`.
-  - Added `whisperx` and `pydub` to `requirements.txt`.
-  - Created `youtube-lyrics-backend/src/utils/whisperXProcessor.ts` to handle `whisperx` CLI execution.
-  - Modified `youtube-lyrics-backend/src/worker.ts` to use `WhisperXProcessor` for alignment.
-  - Updated `youtube-lyrics-backend/nixpacks.toml` to install `whisperx` and its dependencies.
-- **`yt-dlp` Hardening Attempt**:
-  - Modified `youtube-lyrics-backend/nixpacks.toml` to install the latest `yt-dlp` from `pip` instead of Nix packages.
-  - Added `--referer "https://www.youtube.com/"` to `yt-dlp` commands in `download.ts`.
-  - Removed the `ytdl-core` fallback to simplify the download logic and focus on the more robust `yt-dlp`.
+- **Failed `yt-dlp` Dependency Fixes**:
+  - Attempted to install `yt-dlp[default,curl-cffi]` via `nixpacks.toml`.
+  - Attempted to add `curl` and `libcurl` to `nixPkgs` in `nixpacks.toml`.
+  - Both attempts resulted in the same `Impersonate target "chrome" is not available` error, indicating a deeper issue with the Nixpacks build environment's ability to compile `curl_cffi`.
 
 ## Next Steps
-1. **Resolve `yt-dlp` 403 Forbidden Error**: This is the top priority.
-   - Investigate more advanced `yt-dlp` flags or alternative downloaders that are more resilient to YouTube's anti-bot measures.
-   - Consider strategies such as rotating user-agents, using different authentication methods, or exploring different `yt-dlp` forks if necessary.
-2. **Verify End-to-End Transcription**: Once the download is fixed, re-run the entire pipeline to ensure `whisperx` alignment and all subsequent steps are working correctly.
-3. **Continue with original plan**:
-   - Implement job persistence (SQLite/Redis).
-   - Implement S3 upload for processed audio files.
-   - Add comprehensive logging, monitoring, and timeout handling.
+1. **Pause and Re-evaluate**: The immediate priority is to stop further attempts and document the current state of the issue for future investigation.
+2. **Future Investigation**:
+   - Research how to correctly provide C-bindings for Python packages in a Nix/Nixpacks environment.
+   - Explore alternative impersonation methods or `yt-dlp` forks that may not have the same dependencies.
+   - Consider removing the `--impersonate` flag temporarily to see if the `403 Forbidden` error can be resolved with other methods (e.g., more advanced cookie handling, proxy rotation).
 
 ## Known Issues
-- **`yt-dlp` downloads are consistently blocked by YouTube with a 403 Forbidden error.**
+- **`yt-dlp` impersonation fails in production**: The `Impersonate target "chrome" is not available` error persists despite attempts to install `curl_cffi` and its dependencies.
 
 ## Timeline
 | Date       | Milestone                               |
 |------------|-----------------------------------------|
-| 2025-07-03 | Paused debugging of `yt-dlp` 403 error. |
-| 2025-07-03 | Attempted to fix `yt-dlp` with `--referer` and latest version. |
+| 2025-07-03 | Paused debugging of `yt-dlp` impersonation issue. |
+| 2025-07-03 | Attempted to fix impersonation issue by adding `curl` and `libcurl` to `nixPkgs`. |
+| 2025-07-03 | Attempted to fix impersonation issue by installing `yt-dlp[default,curl-cffi]`. |
+| 2025-07-03 | Implemented `--impersonate chrome` and consistent headers for `yt-dlp`. |
 | 2025-07-03 | Implemented `whisperx` for forced alignment. |
 | 2025-07-02 | Demucs PATH Fix & 403 Error Handling    |
 | 2025-07-02 | OpenAI API Key Confirmed                |
