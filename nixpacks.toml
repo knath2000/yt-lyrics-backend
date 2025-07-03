@@ -9,7 +9,7 @@ cmds = [
   "pip3 install --no-cache-dir demucs",
 "pip3 install --no-cache-dir whisperx"
   "npm install"
-"pip3 install --no-cache-dir yt-dlp"
+"pip3 install --no-cache-dir 'yt-dlp[default,curl-cffi]'"
 ]
 
 [phases.build]
