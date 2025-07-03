@@ -19,32 +19,17 @@ interface YtDlpMethod {
   description: string;
 }
 
-const YT_DLP_FALLBACK_METHODS: YtDlpMethod[] = [
-  // Method 1: Impersonate chrome-110 (specific version) for better evasion
-  {
-    name: "chrome-110-impersonation",
-    args: ["--impersonate", "chrome-110"],
-    description: "Impersonating Chrome 110"
-  },
-  // Method 2: Impersonate chrome-99 (older stable version) as a fallback
-  {
-    name: "chrome-99-impersonation",
-    args: ["--impersonate", "chrome-99"],
-    description: "Impersonating Chrome 99"
-  },
-  // Method 3: No impersonation, but with a robust User-Agent and headers
-  {
-    name: "no-impersonation-robust-ua",
-    args: [],
-    description: "No impersonation, robust User-Agent"
-  },
-  // Method 4: Basic yt-dlp with minimal headers, relying on default behavior
-  {
-    name: "basic-yt-dlp",
-    args: [],
-    description: "Basic yt-dlp"
+async function getAvailableImpersonationTargets(): Promise<string[]> {
+  try {
+    const { stdout } = await execAsync('yt-dlp --print-impersonate-targets');
+    const targets = stdout.trim().split('\n').map(s => s.trim()).filter(Boolean);
+    console.log(`Available yt-dlp impersonation targets: ${targets.join(', ')}`);
+    return targets;
+  } catch (error) {
+    console.warn("Could not determine available yt-dlp impersonation targets, proceeding without them.", error);
+    return [];
   }
-];
+}
 
 async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFilePath: string | null): Promise<DownloadResult> {
   const effectiveCookiePath = cookieFilePath || path.resolve(process.cwd(), 'cookies.txt');
@@ -58,7 +43,51 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
   let lastError: Error | null = null;
 
-  for (const method of YT_DLP_FALLBACK_METHODS) {
+  // Dynamically get available impersonation targets
+  const availableImpersonationTargets = await getAvailableImpersonationTargets();
+
+  const dynamicMethods: YtDlpMethod[] = [];
+  if (availableImpersonationTargets.length > 0) {
+    for (const target of availableImpersonationTargets) {
+      dynamicMethods.push({
+        name: `${target}-impersonation`,
+        args: ["--impersonate", target],
+        description: `Impersonating ${target}`
+      });
+    }
+  } else {
+    // Fallback known good targets if no dynamic targets are found
+    dynamicMethods.push(
+      {
+        name: "chrome-110-impersonation",
+        args: ["--impersonate", "chrome-110"],
+        description: "Impersonating Chrome 110"
+      },
+      {
+        name: "chrome-99-impersonation",
+        args: ["--impersonate", "chrome-99"],
+        description: "Impersonating Chrome 99"
+      }
+    );
+  }
+
+  const prioritizedFallbackMethods: YtDlpMethod[] = [
+    // Method 1: No impersonation, but with a robust User-Agent and headers (prioritize this)
+    {
+      name: "no-impersonation-robust-ua",
+      args: [],
+      description: "No impersonation, robust User-Agent"
+    },
+    // Method 2: Basic yt-dlp with minimal headers, relying on default behavior
+    {
+      name: "basic-yt-dlp",
+      args: [],
+      description: "Basic yt-dlp"
+    },
+    ...dynamicMethods // Add dynamically detected or hardcoded impersonation methods here
+  ];
+
+  for (const method of prioritizedFallbackMethods) {
     console.log(`Attempting download with method: ${method.name} (${method.description})`);
     
     // Define common yt-dlp options including general impersonation and headers

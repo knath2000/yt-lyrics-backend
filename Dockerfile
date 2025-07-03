@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     wget \
+    libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Python working directory
@@ -22,7 +23,7 @@ COPY requirements.txt .
 # Install PyTorch CPU-only and other Python dependencies
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt --upgrade
-RUN pip install --no-cache-dir "yt-dlp[default]" "curl_cffi"
+
 
 # Stage 2: Node.js application build
 FROM node:20-slim as node-builder

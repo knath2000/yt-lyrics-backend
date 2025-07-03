@@ -16,13 +16,12 @@ numpy>=1.24.0
 whisperx>=0.3.0
 pydub>=0.25.1
 # YouTube downloading (also installed via system package in Docker)
-yt-dlp>=2023.1.0
+yt-dlp
+curl_cffi
 
 # Utility libraries
 requests>=2.28.0
 python-dotenv>=1.0.0
 
 # Optional: Audio alignment and processing
-scipy>=1.10.0 
-# For yt-dlp impersonation
-curl_cffi==0.7.1
+scipy>=1.10.0
