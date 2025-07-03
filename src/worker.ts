@@ -20,6 +20,7 @@ export class TranscriptionWorker {
   private whisperXProcessor: WhisperXProcessor;
   private workDir: string;
   private cookieFilePath: string | null;
+  private activeJobs: Set<string> = new Set(); // 🆕 Track active jobs
 
   constructor(openaiApiKey: string, workDir = "./temp", cookieFilePath: string | null = null) {
     this.transcriber = new OpenAITranscriber(openaiApiKey);
@@ -42,6 +43,9 @@ export class TranscriptionWorker {
   ): Promise<JobProcessingResult> {
     const jobDir = path.join(this.workDir, jobId);
     
+    // 🆕 Track active job
+    this.activeJobs.add(jobId);
+
     try {
       onProgress?.(5, "Downloading YouTube audio...");
       
@@ -121,14 +125,75 @@ export class TranscriptionWorker {
     } catch (error) {
       console.error(`Job ${jobId} failed:`, error);
       throw new Error(`Processing failed: ${(error as Error).message}`);
+    } finally {
+      // 🆕 Remove from active jobs
+      this.activeJobs.delete(jobId);
     }
   }
 
-  // Clean up temporary files
-  async cleanup(jobId: string): Promise<void> {
-    const jobDir = path.join(this.workDir, jobId);
-    if (fs.existsSync(jobDir)) {
-      fs.rmSync(jobDir, { recursive: true, force: true });
+  // 🆕 CLEANUP METHOD FOR GRACEFUL SHUTDOWN
+  async cleanup(): Promise<void> { // Removed jobId argument
+    console.log("🔄 Starting TranscriptionWorker cleanup...");
+    
+    try {
+      // 1. Wait for active jobs to complete (with timeout)
+      if (this.activeJobs.size > 0) {
+        console.log(`🔄 Waiting for ${this.activeJobs.size} active jobs to complete...`);
+        
+        const waitStart = Date.now();
+        const maxWait = 5000; // 5 seconds max wait
+        
+        while (this.activeJobs.size > 0 && (Date.now() - waitStart) < maxWait) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        if (this.activeJobs.size > 0) {
+          console.log(`⚠️ ${this.activeJobs.size} jobs still active after timeout, proceeding with cleanup`);
+        } else {
+          console.log("✅ All active jobs completed");
+        }
+      }
+
+      // 2. Cleanup temp files in work directory (iterate through all)
+      console.log("🔄 Cleaning up temporary files...");
+      if (fs.existsSync(this.workDir)) {
+        const items = fs.readdirSync(this.workDir);
+        for (const item of items) {
+          const itemPath = path.join(this.workDir, item);
+          try {
+            const stats = fs.statSync(itemPath);
+            if (stats.isDirectory()) {
+              fs.rmSync(itemPath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(itemPath);
+            }
+            console.log(`🗑️ Deleted: ${itemPath}`);
+          } catch (err) {
+            console.warn(`⚠️ Could not delete ${itemPath}:`, err);
+          }
+        }
+      }
+
+      // 3. Cleanup individual processors if they have cleanup methods
+      // Trans criber, WordAligner, DemucsProcessor, WhisperXProcessor
+      // Assuming these will implement their own `cleanup` methods if needed.
+      // Current interface does not show them having cleanup
+
+      console.log("✅ TranscriptionWorker cleanup completed");
+      
+    } catch (error) {
+      console.error("❌ Error during TranscriptionWorker cleanup:", error);
+      throw error;
     }
   }
-} 
+
+  // 🆕 GET ACTIVE JOBS COUNT
+  getActiveJobsCount(): number {
+    return this.activeJobs.size;
+  }
+
+  // 🆕 GET ACTIVE JOB IDS
+  getActiveJobIds(): string[] {
+    return Array.from(this.activeJobs);
+  }
+}
