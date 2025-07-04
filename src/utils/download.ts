@@ -163,9 +163,9 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
     
     // Add headers for info command
     infoArgs.push(
-      `--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
-      `--add-header "Accept-Language: en-US,en;q=0.9"`,
-      `--referer "https://www.youtube.com/"`
+      `--user-agent`, `"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
+      `--add-header`, `"Accept-Language: en-US,en;q=0.9"`,
+      `--referer`, `"https://www.youtube.com/"`
     );
 
     // For download command, include method-specific args with additional Railway optimizations
@@ -177,9 +177,9 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
       cookieArg,
       "--socket-timeout", "30", // Add timeout for Railway stability
       "--retries", "3", // Add retries for network issues
-      `--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
-      `--add-header "Accept-Language: en-US,en;q=0.9"`,
-      `--referer "https://www.youtube.com/"`
+      `--user-agent`, `"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
+      `--add-header`, `"Accept-Language: en-US,en;q=0.9"`,
+      `--referer`, `"https://www.youtube.com/"`
     ].filter(Boolean);
 
     try {
