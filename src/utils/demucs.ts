@@ -24,7 +24,7 @@ export class DemucsProcessor {
   constructor(
     defaultModel: string | null = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
     memorySafeMode: boolean = true, // Enable memory-safe mode by default
-    segmentLength: number = 7.8 // Process in 7.8-second chunks (htdemucs model limit)
+    segmentLength: number = 7 // Process in 7-second chunks (htdemucs model limit, integer required)
   ) {
     this.defaultModel = defaultModel;
     this.memorySafeMode = memorySafeMode;
@@ -46,18 +46,19 @@ export class DemucsProcessor {
    */
   private getSegmentLength(): number {
     // htdemucs transformer model maximum segment length is 7.8 seconds
-    const MAX_HTDEMUCS_SEGMENT = 7.8;
+    // But demucs CLI requires integer values, so we use 7 seconds
+    const MAX_HTDEMUCS_SEGMENT = 7;
     
     if (this.memorySafeMode) {
       // htdemucs requires more conservative segmentation than old demucs
-      // Cap at 7.8s to respect model's training constraints
+      // Cap at 7s to respect model's training constraints and CLI integer requirement
       const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
-      const preferredLength = isRailway ? 7.8 : 7.8; // Use max safe length for both environments
+      const preferredLength = isRailway ? 7 : 7; // Use max safe integer length for both environments
       return Math.min(preferredLength, MAX_HTDEMUCS_SEGMENT);
     }
     
-    // Even in non-safe mode, respect the model's hard limit
-    return Math.min(this.segmentLength, MAX_HTDEMUCS_SEGMENT);
+    // Even in non-safe mode, respect the model's hard limit and ensure integer value
+    return Math.min(Math.floor(this.segmentLength), MAX_HTDEMUCS_SEGMENT);
   }
   private async checkAudioBackends(): Promise<AudioBackendInfo> {
     const info: AudioBackendInfo = {
