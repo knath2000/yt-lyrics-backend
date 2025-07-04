@@ -19,10 +19,23 @@ export interface DemucsResult {
 export class DemucsProcessor {
   private defaultModel: string | null;
   private memorySafeMode: boolean;
+  private segmentLength: number;
 
-  constructor(defaultModel: string | null = null, memorySafeMode: boolean = false) {
+  constructor(
+    defaultModel: string | null = "demucs_v2", // Use lightweight model for Railway
+    memorySafeMode: boolean = true, // Enable memory-safe mode by default
+    segmentLength: number = 15 // Process in 15-second chunks
+  ) {
     this.defaultModel = defaultModel;
     this.memorySafeMode = memorySafeMode;
+    this.segmentLength = segmentLength;
+  }
+
+  /**
+   * Check if processor is in memory-safe mode
+   */
+  isMemorySafe(): boolean {
+    return this.memorySafeMode;
   }
   private async checkAudioBackends(): Promise<AudioBackendInfo> {
     const info: AudioBackendInfo = {
@@ -70,23 +83,28 @@ export class DemucsProcessor {
       );
     }
 
-    // Use compatible Demucs v4+ options
+    // Railway-optimized Demucs options for 1GB RAM limit
     const cmdParts = [
       '--two-stems=vocals',
       '--mp3',  // Use MP3 output format (more compatible)
-      '--device=cpu',  // Force CPU to avoid CUDA issues (note: =cpu not space)
+      '--device=cpu',  // Force CPU to avoid CUDA issues
       '-o', `"${outputDir}"`,
     ];
 
-    // Note: --chunks is not available in demucs v4+, so we skip memory-safe mode optimization
-    // Memory usage will be managed by the system itself
+    // Memory optimization parameters for Railway deployment
     if (this.memorySafeMode) {
-      console.log('Memory-safe mode enabled, but --chunks not available in demucs v4+');
-      // Could potentially use --segment if available in future versions
+      cmdParts.push('--segment', this.segmentLength.toString()); // Process in chunks
+      cmdParts.push('--overlap', '0.1'); // Reduce overlap from default 0.25 to 0.1
+      cmdParts.push('--shifts', '0'); // Disable ensemble averaging to save memory
+      console.log(`Memory-safe mode enabled: ${this.segmentLength}s segments, 0.1 overlap, no shifts`);
     }
 
+    // Use lightweight model optimized for memory constraints
     if (this.defaultModel) {
       cmdParts.unshift('-n', this.defaultModel);
+    } else {
+      // Fallback to demucs_v2 if no model specified
+      cmdParts.unshift('-n', 'demucs_v2');
     }
 
     const cmdString = `demucs ${cmdParts.join(' ')} "${input}"`;
@@ -180,10 +198,6 @@ export class DemucsProcessor {
       vocalsPath,
       instrumentalsPath,
     };
-  }
-
-  isMemorySafe(): boolean {
-    return this.memorySafeMode;
   }
 
   async isDemucsAvailable(): Promise<boolean> {

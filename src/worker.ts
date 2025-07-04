@@ -23,11 +23,11 @@ export class TranscriptionWorker {
   private activeJobs: Set<string> = new Set(); // 🆕 Track active jobs
 
   constructor(
-    openaiApiKey: string, 
-    workDir = "./temp", 
+    openaiApiKey: string,
+    workDir = "./temp",
     cookieFilePath: string | null = null,
-    demucsModel: string = "htdemucs_ft", // Default to a more performant model
-    demucsMemorySafeMode: boolean = true // Default to memory-safe mode
+    demucsModel: string = "demucs_v2", // Railway-optimized lightweight model
+    demucsMemorySafeMode: boolean = true // Default to memory-safe mode for Railway
   ) {
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
