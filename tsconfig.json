@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ES2020",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "rootDir": "src",
     "outDir": "dist",
     "esModuleInterop": true,
@@ -11,4 +11,4 @@
     "skipLibCheck": true
   },
   "include": ["src"]
-} 
+}

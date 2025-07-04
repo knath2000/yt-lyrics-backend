@@ -20,14 +20,16 @@ cmds = [
   "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu",
   # Install Python dependencies
   "pip install -r requirements.txt",
-  # Install Node.js dependencies
-  "npm ci --production"
+  # Install ALL Node.js dependencies (including devDependencies for build)
+  "npm ci"
 ]
 
 [phases.build]
 cmds = [
   # Build TypeScript
-  "npm run build"
+  "npm run build",
+  # Remove devDependencies after build to save space
+  "npm prune --production"
 ]
 
 [start]
