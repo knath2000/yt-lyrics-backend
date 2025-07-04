@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "npx tsc -p .",
-    "start": "exec node dist/index.js"
+    "railway": "exec node dist/index.js"
   },
   "dependencies": {
     "express": "^4.19.2",

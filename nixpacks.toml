@@ -33,7 +33,10 @@ cmds = [
 ]
 
 [start]
-cmd = "node dist/index.js"
+# Force Railway to bypass npm and use direct Node.js execution
+cmd = "exec node dist/index.js"
+# Disable auto-detection of npm start scripts
+nixpkgsArchive = "ad60d7da4cc80997f470e13d769b9c13de5d4635"
 
 [variables]
 # Railway memory optimization environment variables
