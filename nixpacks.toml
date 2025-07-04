@@ -33,7 +33,7 @@ cmds = [
 ]
 
 [start]
-cmd = "npm start"
+cmd = "node dist/index.js"
 
 [variables]
 # Railway memory optimization environment variables
