@@ -1,31 +1,30 @@
-# nixpacks.toml for Railway deployment optimized for htdemucs
-# See https://nixpacks.com/docs/configuration/file
-
-[variables]
-NODE_ENV = "production"
-PYTHONUNBUFFERED = "1"
-# Railway memory optimization for htdemucs
-DEMUCS_MODEL = "htdemucs"
-DEMUCS_MEMORY_SAFE = "true"
+# nixpacks.toml
 
 [phases.setup]
-# Core system packages optimized for Railway 1GB limit
-nixPkgs = ["...", "ffmpeg-full", "python3", "nodejs-20_x", "git"]
-# Essential packages for Demucs and audio processing
-aptPkgs = ["...", "libsndfile1", "libgl1-mesa-glx", "build-essential", "libcurl4-openssl-dev", "libfftw3-dev"]
+# Use the latest available Nixpacks providers for Node.js and Python
+# Also install ffmpeg, which is required by whisper and demucs.
+providers = ["node", "python"]
+# System packages required for our Python dependencies and yt-dlp
+# git is needed to install the latest yt-dlp from the repository if needed
+aptPkgs = ["ffmpeg", "git"]
 
-[phases.build]
-# Build commands optimized for Railway
+[phases.install]
+# Install Node.js dependencies
+# Install Python dependencies from requirements.txt
+# Then, force an upgrade of yt-dlp to the absolute latest version to fix signature errors.
+# Finally, install PyTorch dependencies required for Demucs with CUDA support.
 cmds = [
-  "npm install --global pnpm",
-  "pnpm install --frozen-lockfile",
-  # Pre-install Python dependencies to cache them
-  "pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu",
-  "pip install --no-cache-dir -r requirements.txt",
-  # CRITICAL: Always update yt-dlp to latest version to prevent signature extraction failures
-  "pip install --upgrade --no-cache-dir yt-dlp"
+    "npm install", 
+    "pip install --upgrade pip setuptools wheel",
+    "pip install -r requirements.txt", 
+    "pip install --upgrade yt-dlp",
+    "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu"
 ]
 
+[phases.build]
+# Compile TypeScript code
+cmds = ["npm run build"]
+
 [start]
-# Start command with memory optimizations
-cmd = "node --max-old-space-size=512 dist/index.js"
+# The command to start the application after a successful build
+cmd = "npm start"

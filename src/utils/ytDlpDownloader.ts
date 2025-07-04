@@ -245,7 +245,7 @@ export class YtDlpDownloader {
         
         // Verify file is not empty
         if (stats.size > 0) {
-          return path.basename(downloadedFile, path.extname(downloadedFile));
+          return fullPath;
         }
       }
     } catch (error) {
