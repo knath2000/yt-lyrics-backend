@@ -141,59 +141,53 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
     // Define Railway-optimized yt-dlp options
     const isRailway = process.env.RAILWAY_ENVIRONMENT_ID || process.env.RAILWAY_PROJECT_ID;
     
-    // For info command, use format specification to avoid format resolution errors
-    const infoArgs = [
-      "--format", "best/worst/bestaudio/worstaudio", // Specify format to prevent resolution errors
+    // Consolidate all common args
+    const commonArgs = [
       "--rm-cache-dir",
       "--no-playlist",
       "--no-warnings",
-      cookieArg
+      cookieArg,
     ].filter(Boolean);
 
-    // Add Railway-specific robustness for info command
     if (isRailway) {
-      infoArgs.push(
+      commonArgs.push(
         "--no-check-certificate",
         "--ignore-errors",
         "--socket-timeout", "30",
-        "--prefer-free-formats", // Prefer formats that don't require special handling
-        "--no-check-certificate"
+        "--prefer-free-formats"
       );
     }
-    
-    // Add headers for info command
-    infoArgs.push(
-      `--user-agent`, `"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
-      `--add-header`, `"Accept-Language: en-US,en;q=0.9"`,
-      `--referer`, `"https://www.youtube.com/"`
-    );
 
-    // For download command, include method-specific args with additional Railway optimizations
-    const downloadArgs = [
-      "--rm-cache-dir",
-      "--no-playlist",
-      "--no-warnings",
-      ...method.args, // Include method-specific format args
-      cookieArg,
-      "--socket-timeout", "30", // Add timeout for Railway stability
-      "--retries", "3", // Add retries for network issues
+    const headerArgs = [
       `--user-agent`, `"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
       `--add-header`, `"Accept-Language: en-US,en;q=0.9"`,
       `--referer`, `"https://www.youtube.com/"`
-    ].filter(Boolean);
+    ];
+
+    const infoArgs = [...commonArgs, ...headerArgs, "--format", "best/worst/bestaudio/worstaudio"];
+
+    const downloadArgs = [
+        ...commonArgs,
+        ...headerArgs,
+        ...method.args,
+        "--socket-timeout", "30",
+        "--retries", "3"
+    ];
 
     try {
       console.log(`Getting video info for: ${youtubeUrl} using method: ${method.name}`);
-      const infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${infoArgs.join(" ")} "${youtubeUrl}"`;
+      // Use --dump-json to get structured data, which is more reliable than parsing stdout
+      const infoCmd = `yt-dlp --dump-json ${infoArgs.join(" ")} "${youtubeUrl}"`;
       console.log(`Executing info command: ${infoCmd}`);
 
       const infoResult = await execAsync(infoCmd);
       if (infoResult.stderr) {
         console.log(`yt-dlp info stderr for method ${method.name}: ${infoResult.stderr}`);
       }
-      
-      const [title, durationStr] = infoResult.stdout.trim().split('|');
-      const duration = parseInt(durationStr) || 0;
+
+      const videoInfo = JSON.parse(infoResult.stdout);
+      const title = videoInfo.title;
+      const duration = videoInfo.duration || 0;
 
       const cleanTitle = title
         .replace(/[<>:"/\\|?*👹🎵🎶💯🔥]/g, "")
