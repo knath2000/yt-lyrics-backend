@@ -20,6 +20,8 @@ const corsOptions = {
     'https://vercel.app',
     'https://*.vercel.app',
     'https://youtube-lyrics-frontend.vercel.app',
+    'https://yt-lyrics-backend.onrender.com',
+    'https://*.onrender.com',
   ],
   credentials: true,
   optionsSuccessStatus: 200,
@@ -70,6 +72,24 @@ app.get("/health", (req, res) => {
   // Return 503 during shutdown to signal unhealthiness
   const statusCode = isShuttingDown ? 503 : 200;
   res.status(statusCode).json(health);
+});
+
+// 🆕 METRICS ENDPOINT FOR RENDER MONITORING
+app.get("/metrics", (req, res) => {
+  const metrics = {
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    cpu: process.cpuUsage(),
+    pid: process.pid,
+    platform: process.platform,
+    nodeVersion: process.version,
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT,
+    status: isShuttingDown ? "shutting_down" : "healthy"
+  };
+  
+  res.json(metrics);
 });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;

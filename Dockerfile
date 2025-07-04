@@ -1,4 +1,4 @@
-# Multi-stage Docker build for YouTube Lyrics Backend on Hugging Face Spaces
+# Multi-stage Docker build for YouTube Lyrics Backend on Render
 # Optimized for Python ML dependencies + Node.js API server
 
 # Stage 1: Python dependencies and ML models
@@ -78,12 +78,12 @@ COPY --from=node-builder /app/dist ./dist
 # Create temp directory for audio processing
 RUN mkdir -p temp
 
-# Expose Hugging Face Spaces port
-EXPOSE 7860
+# Expose port (Render uses PORT env var)
+EXPOSE $PORT
 
-# Health check
+# Health check for Render (uses dynamic PORT)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:7860/health || exit 1
+    CMD curl -f http://localhost:${PORT:-4000}/health || exit 1
 
 # Start the application
 CMD ["npm", "start"]

@@ -10,22 +10,22 @@ export interface TranscriptionWord {
 
 export class WhisperXProcessor {
   async alignAudio(audioPath: string, transcriptionText: string): Promise<TranscriptionWord[]> {
-    // Save transcription texts to a temporary file
+    // Save transcription texts to a temporary file for reference
     const tempTxtPath = `${audioPath}.txt`;
     fs.writeFileSync(tempTxtPath, transcriptionText);
 
     return new Promise((resolve, reject) => {
-      // Command to run whisperx for forced alignment
-      // WhisperX align uses positional arguments: whisperx align <audio> <transcript> [options]
+      // Modern WhisperX CLI: whisperx audio_file [options]
+      // No subcommands like "align", just direct audio processing with alignment
       const whisperXProcess = spawn("whisperx", [
-        "align",
-        audioPath,           // First positional argument: audio file
-        tempTxtPath,         // Second positional argument: transcript file
-        "--compute_type", "float16", // Use float16 for better performance on CPU
+        audioPath,                              // Audio file as positional argument
+        "--compute_type", "float16",            // Use float16 for better performance
         "--output_dir", path.dirname(audioPath),
         "--output_format", "json",
-        "--model", "base",   // Use a base model for alignment
-        "--align_model", "Wav2Vec2-Large-v2", // Specify an alignment model
+        "--model", "base",                      // Whisper model for transcription
+        "--align_model", "WAV2VEC2_ASR_BASE_960H", // Wav2Vec2 model for alignment
+        "--interpolate_method", "linear",       // Interpolation method for alignment
+        "--chunk_size", "30",                   // Process in 30-second chunks
       ]);
 
       let stdout = "";
@@ -41,7 +41,11 @@ export class WhisperXProcessor {
 
       whisperXProcess.on("close", (code) => {
         // Clean up temporary text file
-        fs.unlinkSync(tempTxtPath);
+        try {
+          fs.unlinkSync(tempTxtPath);
+        } catch (e) {
+          console.warn("Could not clean up temp file:", e);
+        }
 
         if (code !== 0) {
           console.error(`WhisperX process exited with code ${code}`);
@@ -52,21 +56,45 @@ export class WhisperXProcessor {
 
         try {
           // WhisperX outputs a JSON file with the same name as the audio file
-          const jsonOutputPath = path.join(path.dirname(audioPath), `${path.basename(audioPath).split(".")[0]}.json`);
+          const baseName = path.basename(audioPath, path.extname(audioPath));
+          const jsonOutputPath = path.join(path.dirname(audioPath), `${baseName}.json`);
+          
+          if (!fs.existsSync(jsonOutputPath)) {
+            return reject(new Error(`WhisperX output file not found: ${jsonOutputPath}`));
+          }
+          
           const result = JSON.parse(fs.readFileSync(jsonOutputPath, "utf8"));
           
           // Clean up the generated JSON file
-          fs.unlinkSync(jsonOutputPath);
+          try {
+            fs.unlinkSync(jsonOutputPath);
+          } catch (e) {
+            console.warn("Could not clean up JSON output file:", e);
+          }
 
-          if (result && result.word_segments) {
-            const words: TranscriptionWord[] = result.word_segments.map((segment: any) => ({
-              word: segment.word,
-              start: segment.start,
-              end: segment.end,
-            }));
-            resolve(words);
+          // Modern WhisperX outputs segments with word-level timestamps
+          if (result && result.segments) {
+            const words: TranscriptionWord[] = [];
+            
+            for (const segment of result.segments) {
+              if (segment.words) {
+                for (const word of segment.words) {
+                  words.push({
+                    word: word.word || word.text,
+                    start: word.start,
+                    end: word.end,
+                  });
+                }
+              }
+            }
+            
+            if (words.length > 0) {
+              resolve(words);
+            } else {
+              reject(new Error("WhisperX output contained no word-level timestamps."));
+            }
           } else {
-            reject(new Error("WhisperX output did not contain word_segments."));
+            reject(new Error("WhisperX output format not recognized - missing segments."));
           }
         } catch (parseError) {
           reject(new Error(`Failed to parse WhisperX output: ${parseError}`));
