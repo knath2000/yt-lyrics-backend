@@ -22,7 +22,7 @@ export class DemucsProcessor {
   private segmentLength: number;
 
   constructor(
-    defaultModel: string | null = "demucs_v2", // Use lightweight model for Railway
+    defaultModel: string | null = "demucs", // Use lightweight model for Railway
     memorySafeMode: boolean = true, // Enable memory-safe mode by default
     segmentLength: number = 15 // Process in 15-second chunks
   ) {
@@ -103,8 +103,8 @@ export class DemucsProcessor {
     if (this.defaultModel) {
       cmdParts.unshift('-n', this.defaultModel);
     } else {
-      // Fallback to demucs_v2 if no model specified
-      cmdParts.unshift('-n', 'demucs_v2');
+      // Fallback to demucs if no model specified
+      cmdParts.unshift('-n', 'demucs');
     }
 
     const cmdString = `demucs ${cmdParts.join(' ')} "${input}"`;
