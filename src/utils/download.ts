@@ -22,7 +22,7 @@ interface YtDlpMethod {
  * @returns A promise that resolves with the stdout.
  */
 async function executeCommand(command: string, args: string[]): Promise<string> {
-  const process = spawn(command, args);
+  const process = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
   let stdout = "";
   let stderr = "";
 
@@ -37,7 +37,9 @@ async function executeCommand(command: string, args: string[]): Promise<string> 
   const [exitCode] = await once(process, "close");
 
   if (exitCode !== 0) {
-    throw new Error(`Command "${command} ${args.join(" ")}" failed with exit code ${exitCode}:\n${stderr}`);
+    // Combine stdout and stderr for a more complete error message
+    const errorMessage = `Command "${command} ${args.join(" ")}" failed with exit code ${exitCode}:\n${stdout}\n${stderr}`;
+    throw new Error(errorMessage);
   }
 
   return stdout;
@@ -46,22 +48,21 @@ async function executeCommand(command: string, args: string[]): Promise<string> 
 async function getAvailableImpersonationTargets(ytDlpPath: string): Promise<string[]> {
   try {
     const stdout = await executeCommand(ytDlpPath, ['--list-impersonate-targets']);
-    // Filter out header and invalid lines, take the first word of each valid line
     const targets = stdout
       .trim()
       .split('\n')
-      .slice(2) // Skip header lines
-      .map(s => s.trim().split(/\s+/)[0])
-      .filter(Boolean);
+      .map(s => s.trim().split(/\s+/)[0].toLowerCase()) // Get first word, make lowercase
+      .filter(s => s && !s.includes('-') && !s.includes('client')); // Filter out headers and invalid lines
+
     console.log(`Available yt-dlp impersonation targets: ${targets.join(', ')}`);
-    if (targets.length === 0) {
-        console.warn("No impersonation targets found from command output.");
-        return ['chrome-110']; // Sensible fallback
+    if (targets.length > 0) {
+      return targets;
     }
-    return targets;
+    console.warn("No valid impersonation targets found, using default fallback.");
+    return ['chrome']; // Sensible fallback
   } catch (error) {
     console.warn("Could not list yt-dlp impersonation targets, using fallbacks.", error);
-    return ['chrome-110', 'chrome-99']; // Sensible fallbacks
+    return ['chrome', 'firefox']; // Sensible fallbacks
   }
 }
 
@@ -91,14 +92,14 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
   let duration: number = 0;
   
   try {
-    const infoArgs = ["--print", "%(title)s|%(duration)s", "--no-playlist", youtubeUrl];
+    const infoArgs = [youtubeUrl, "--print", "%(title)s|%(duration)s", "--no-playlist", ...cookieArgs];
     const infoStdout = await executeCommand(ytDlpPath, infoArgs);
     const [fetchedTitle, durationStr] = infoStdout.trim().split('|');
     title = fetchedTitle || 'Unknown Title';
     duration = parseInt(durationStr, 10) || 0;
   } catch (e) {
     const error = e as Error;
-    console.warn("Could not fetch video metadata anead of time.", error.message);
+    console.warn("Could not fetch video metadata ahead of time, may be due to bot detection.", error.message);
     title = `video_${Date.now()}`;
   }
   
@@ -106,13 +107,14 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
   const safeFilename = cleanTitle || `audio_${Date.now()}`;
   const outputTemplate = path.join(outputDir, `${safeFilename}.%(ext)s`);
   
-  const baseMethods: YtDlpMethod[] = [
+  // --- Create a list of methods to try ---
+  const methods: YtDlpMethod[] = [
     { name: "default-best", args: ["-f", "bestaudio/best"], description: "Default best audio" },
   ];
   
   const impersonationTargets = await getAvailableImpersonationTargets(ytDlpPath);
   for (const target of impersonationTargets) {
-      baseMethods.push({
+      methods.push({
           name: `impersonate-${target}`,
           args: ["--impersonate", target],
           description: `Impersonate ${target}`
@@ -121,14 +123,16 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
   let lastError: Error | null = null;
 
-  for (const method of baseMethods) {
+  for (const method of methods) {
     console.log(`Attempting download with method: ${method.name} (${method.description})`);
     
+    // Always include cookie and playlist args in every attempt
     const downloadArgs = [
         youtubeUrl,
         ...cookieArgs,
         ...method.args,
-        "-x",
+        "--no-playlist",
+        "-x", // extract audio
         "--audio-format", "mp3",
         "--audio-quality", "0",
         "-o", outputTemplate,
