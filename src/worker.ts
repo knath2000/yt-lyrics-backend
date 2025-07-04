@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { YtDlpDownloader } from "./utils/download.js";
+import { YtDlpDownloader } from "./utils/ytDlpDownloader.js";
 import { OpenAITranscriber } from "./utils/openaiTranscriber.js";
 import { WordAligner } from "./utils/align.js";
 import { WhisperXProcessor } from "./utils/whisperXProcessor.js";
@@ -41,7 +41,7 @@ export class TranscriptionWorker {
     this.wordAligner = new WordAligner();
     this.demucsProcessor = new DemucsProcessor(demucsModel, demucsMemorySafeMode);
     this.whisperXProcessor = new WhisperXProcessor();
-    this.ytDlpDownloader = new YtDlpDownloader();
+    this.ytDlpDownloader = new YtDlpDownloader(cookieFilePath || undefined);
     this.workDir = workDir;
     this.cookieFilePath = cookieFilePath;
 

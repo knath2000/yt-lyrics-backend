@@ -21,7 +21,9 @@ cmds = [
   "pnpm install --frozen-lockfile",
   # Pre-install Python dependencies to cache them
   "pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu",
-  "pip install --no-cache-dir -r requirements.txt"
+  "pip install --no-cache-dir -r requirements.txt",
+  # CRITICAL: Always update yt-dlp to latest version to prevent signature extraction failures
+  "pip install --upgrade --no-cache-dir yt-dlp"
 ]
 
 [start]
