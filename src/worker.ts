@@ -76,7 +76,8 @@ export class TranscriptionWorker {
           onProgress?.(30, "Separating vocals with Demucs...");
           const demucsResult = await this.demucsProcessor.separateVocals(
             downloadResult.audioPath,
-            jobDir
+            jobDir,
+            downloadResult.duration
           );
           audioToTranscribe = demucsResult.vocalsPath;
           console.log("Vocal separation completed");

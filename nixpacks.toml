@@ -1,25 +1,16 @@
-# nixpacks.toml
+# nixpacks.toml for Railway deployment
+# See https://nixpacks.com/docs/configuration/file
 
 [phases.setup]
-# Install system-level dependencies required for Python packages
-nixPkgs = [
-  "python311",
-  "ffmpeg-full", # Provides ffmpeg and ffprobe
-  "lame",        # For MP3 encoding with lameenc
-  "git"          # Required for some pip installs
-]
-
-[phases.install]
-cmds = [
-  "pip install --upgrade pip",
-  # Install PyTorch with CPU-only specifics for Railway's environment
-  "pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu",
-  # Install other Python dependencies
-  "pip install -r requirements.txt"
-]
+# Use the official NixOS channel for stability
+nixPkgs = ["...", "ffmpeg-full", "python3", "nodejs-20_x"]
+# Explicitly add packages required by Python dependencies
+aptPkgs = ["...", "libsndfile1", "libgl1-mesa-glx", "build-essential", "libcurl4-openssl-dev"]
 
 [phases.build]
-cmds = ["npm run build"]
+# Commands to run before building the application
+cmds = ["npm install --global pnpm", "pnpm install --frozen-lockfile"]
 
 [start]
+# Command to start the application
 cmd = "npm start"

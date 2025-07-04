@@ -42,19 +42,24 @@ export class DemucsProcessor {
    * Get optimal segment length for htdemucs model based on audio duration
    * htdemucs is more memory-intensive than the deprecated demucs model
    */
-  private getOptimalSegmentLength(audioDurationSeconds?: number): number {
+  private getSegmentLength(audioDurationSeconds?: number): number {
+    // htdemucs is a transformer model with a hard segment limit.
+    if (this.defaultModel?.includes('htdemucs')) {
+        return 7; // Use a safe value below the 7.8s limit
+    }
+
     if (!this.memorySafeMode) {
       return this.segmentLength;
     }
-
-    // For Railway 1GB memory limit, use aggressive segmentation for htdemucs
+    
+    // Fallback for other models if memory safe mode is on
     if (audioDurationSeconds && audioDurationSeconds > 600) { // 10+ minutes
-      return 8; // Very small segments for long audio
+      return 8;
     } else if (audioDurationSeconds && audioDurationSeconds > 300) { // 5+ minutes
-      return 10; // Small segments for medium audio
+      return 10;
     }
     
-    return this.segmentLength; // Default 15s for shorter audio
+    return this.segmentLength; // Default 15s
   }
   private async checkAudioBackends(): Promise<AudioBackendInfo> {
     const info: AudioBackendInfo = {
@@ -88,7 +93,7 @@ export class DemucsProcessor {
     return info;
   }
 
-  private async runDemucs(input: string, outputDir: string): Promise<void> {
+  private async runDemucs(input: string, outputDir: string, audioDuration?: number): Promise<void> {
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
@@ -116,20 +121,12 @@ export class DemucsProcessor {
 
     // Memory optimization parameters for Railway deployment
     if (this.memorySafeMode) {
-      // Use optimal segment length for htdemucs model
-      const optimalSegmentLength = this.getOptimalSegmentLength();
-      cmdParts.push('--segment', optimalSegmentLength.toString()); // Process in chunks
-      cmdParts.push('--overlap', '0.1'); // Reduce overlap from default 0.25 to 0.1
-      cmdParts.push('--shifts', '0'); // Disable ensemble averaging to save memory
-      console.log(`Memory-safe mode enabled: ${optimalSegmentLength}s segments, 0.1 overlap, no shifts (htdemucs optimized)`);
-    }
-
-    // Use lightweight model optimized for memory constraints
-    if (this.defaultModel) {
-      cmdParts.unshift('-n', this.defaultModel);
-    } else {
-      // Fallback to demucs if no model specified
-      cmdParts.unshift('-n', 'htdemucs');
+      // Use optimal segment length based on model and audio duration
+      const segmentLength = this.getSegmentLength(audioDuration);
+      cmdParts.push('--segment', segmentLength.toString());
+      cmdParts.push('--overlap', '0.1');
+      cmdParts.push('--shifts', '0');
+      console.log(`Memory-safe mode enabled: ${segmentLength}s segments, 0.1 overlap, no shifts`);
     }
 
     const cmdString = `demucs ${cmdParts.join(' ')} "${input}"`;
@@ -169,14 +166,14 @@ export class DemucsProcessor {
     }
   }
   
-  async separateVocals(audioPath: string, outputDir: string): Promise<DemucsResult> {
+  async separateVocals(audioPath: string, outputDir: string, audioDuration?: number): Promise<DemucsResult> {
     const inputExists = fs.existsSync(audioPath);
     if (!inputExists) {
       throw new Error(`Audio file not found for Demucs: ${audioPath}`);
     }
 
     // Run Demucs
-    await this.runDemucs(audioPath, outputDir);
+    await this.runDemucs(audioPath, outputDir, audioDuration);
 
     // Demucs will create outputDir/<model>/<basename>/vocals.wav etc.
     const base = path.parse(audioPath).name;
