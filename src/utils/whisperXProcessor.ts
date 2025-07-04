@@ -9,6 +9,14 @@ export interface TranscriptionWord {
 }
 
 export class WhisperXProcessor {
+  private computeType: string;
+
+  constructor() {
+    // Use int8 compute type for CPU compatibility (Railway uses CPU instances)
+    // This prevents the "float16 compute type not supported" error
+    this.computeType = "int8";
+  }
+
   async alignAudio(audioPath: string, transcriptionText: string): Promise<TranscriptionWord[]> {
     // Save transcription texts to a temporary file for reference
     const tempTxtPath = `${audioPath}.txt`;
@@ -19,7 +27,7 @@ export class WhisperXProcessor {
       // No subcommands like "align", just direct audio processing with alignment
       const whisperXProcess = spawn("whisperx", [
         audioPath,                              // Audio file as positional argument
-        "--compute_type", "float16",            // Use float16 for better performance
+        "--compute_type", this.computeType,     // Use CPU-compatible compute type
         "--output_dir", path.dirname(audioPath),
         "--output_format", "json",
         "--model", "base",                      // Whisper model for transcription
