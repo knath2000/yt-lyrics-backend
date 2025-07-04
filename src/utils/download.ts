@@ -43,45 +43,60 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
   let lastError: Error | null = null;
 
-  // Railway-optimized method order: prioritize non-impersonation methods with explicit format handling
+  // Railway-optimized method order: prioritize non-impersonation methods with comprehensive format handling
   const prioritizedFallbackMethods: YtDlpMethod[] = [
-    // Method 1: Railway-optimized with explicit format selection
+    // Method 1: Railway-optimized with comprehensive format fallbacks
     {
       name: "railway-optimized",
       args: [
-        "--format", "best[height<=720]/best",
+        "--format", "best[height<=720]/worst[height<=720]/bestaudio/worstaudio/best/worst",
         "--no-check-certificate",
-        "--extractor-retries", "3"
+        "--extractor-retries", "3",
+        "--prefer-free-formats"
       ],
-      description: "Railway-optimized with format fallbacks"
+      description: "Railway-optimized with comprehensive format fallbacks"
     },
-    // Method 2: Simple format selection
+    // Method 2: Audio-first approach (since we only need audio)
     {
-      name: "simple-format",
+      name: "audio-first",
       args: [
-        "--format", "worst/best",
-        "--no-playlist"
+        "--format", "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best[ext=m4a]/best[ext=mp3]/best/worst",
+        "--extract-audio",
+        "--prefer-free-formats"
       ],
-      description: "Simple format selection"
+      description: "Audio-first with multiple format fallbacks"
     },
-    // Method 3: Audio-only fallback (since we only need audio)
+    // Method 3: Simple progressive fallback
     {
-      name: "audio-only",
+      name: "progressive-fallback",
       args: [
-        "--format", "bestaudio/best",
-        "--extract-audio"
+        "--format", "worst/best/bestaudio/worstaudio",
+        "--no-check-certificate",
+        "--ignore-errors"
       ],
-      description: "Audio-only extraction"
+      description: "Progressive quality fallback"
     },
-    // Method 4: Most permissive fallback
+    // Method 4: Any available format (most permissive)
     {
-      name: "permissive-fallback",
+      name: "any-format",
+      args: [
+        "--format", "best/worst/bestaudio/worstaudio/webm/mp4/3gp",
+        "--no-check-certificate",
+        "--ignore-errors",
+        "--no-warnings",
+        "--prefer-free-formats"
+      ],
+      description: "Accept any available format"
+    },
+    // Method 5: Last resort - no format specification
+    {
+      name: "no-format-spec",
       args: [
         "--no-check-certificate",
         "--ignore-errors",
         "--no-warnings"
       ],
-      description: "Most permissive fallback"
+      description: "No format specification - use yt-dlp defaults"
     }
   ];
 
@@ -126,8 +141,9 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
     // Define Railway-optimized yt-dlp options
     const isRailway = process.env.RAILWAY_ENVIRONMENT_ID || process.env.RAILWAY_PROJECT_ID;
     
-    // For info command, use minimal args to avoid format issues
+    // For info command, use format specification to avoid format resolution errors
     const infoArgs = [
+      "--format", "best/worst/bestaudio/worstaudio", // Specify format to prevent resolution errors
       "--rm-cache-dir",
       "--no-playlist",
       "--no-warnings",
@@ -139,7 +155,9 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
       infoArgs.push(
         "--no-check-certificate",
         "--ignore-errors",
-        "--socket-timeout", "30"
+        "--socket-timeout", "30",
+        "--prefer-free-formats", // Prefer formats that don't require special handling
+        "--no-check-certificate"
       );
     }
     
@@ -150,13 +168,15 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
       `--referer "https://www.youtube.com/"`
     );
 
-    // For download command, include method-specific args
+    // For download command, include method-specific args with additional Railway optimizations
     const downloadArgs = [
       "--rm-cache-dir",
       "--no-playlist",
       "--no-warnings",
       ...method.args, // Include method-specific format args
       cookieArg,
+      "--socket-timeout", "30", // Add timeout for Railway stability
+      "--retries", "3", // Add retries for network issues
       `--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
       `--add-header "Accept-Language: en-US,en;q=0.9"`,
       `--referer "https://www.youtube.com/"`
