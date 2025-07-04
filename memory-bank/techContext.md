@@ -50,6 +50,8 @@ graph LR
 #### 2. Vocal Separation (Demucs)
 - **Model**: `htdemucs` (latest supported model as of Jan 2025)
 - **Memory Mode**: Safe mode enabled for Railway (prevents OOM)
+- **Segment Length**: 7 seconds (integer) for CLI compatibility and memory safety
+- **CLI Requirement**: Demucs requires integer values for `--segment` argument
 - **Skip Logic**: Long audio (>10min) skipped in memory-safe mode
 - **Output**: Isolated vocal track for better transcription
 
@@ -62,6 +64,8 @@ graph LR
 #### 4. Word Alignment (WhisperX)
 - **Tool**: `whisperx` CLI with modern argument format
 - **Model**: `WAV2VEC2_ASR_BASE_960H` for alignment
+- **Compute Type**: `int8` for CPU compatibility (Railway environment)
+- **CPU Optimization**: Dynamically set to avoid float16 errors on CPU-only instances
 - **Precision**: Word-level timestamps with confidence scores
 - **Output**: JSON with start/end times per word
 

@@ -6,7 +6,7 @@ import path from 'path';
 const COOKIE_FILE_PATH = path.join('/tmp', 'cookies.txt');
 
 /**
- * Initializes the cookie jar by writing the content from an environment variable
+ * Initializees the cookie jar by writing the content from an environment variable
  * to a temporary file. This file will then be used by yt-dlp.
  */
 export function initializeCookieJar(): string | null {
