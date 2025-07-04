@@ -26,7 +26,7 @@ export class TranscriptionWorker {
     openaiApiKey: string,
     workDir = "./temp",
     cookieFilePath: string | null = null,
-    demucsModel: string = "htdemucs", // Railway-optimized htdemucs model (demucs deprecated)
+    demucsModel: string = "demucs_unittest", // Use lightweight model for low-resource envs
     demucsMemorySafeMode: boolean = true // Default to memory-safe mode for Railway
   ) {
     this.transcriber = new OpenAITranscriber(openaiApiKey);
@@ -76,8 +76,7 @@ export class TranscriptionWorker {
           onProgress?.(30, "Separating vocals with Demucs...");
           const demucsResult = await this.demucsProcessor.separateVocals(
             downloadResult.audioPath,
-            jobDir,
-            downloadResult.duration
+            jobDir
           );
           audioToTranscribe = demucsResult.vocalsPath;
           console.log("Vocal separation completed");

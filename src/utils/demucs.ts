@@ -22,7 +22,7 @@ export class DemucsProcessor {
   private segmentLength: number;
 
   constructor(
-    defaultModel: string | null = "htdemucs", // Use htdemucs model (demucs deprecated)
+    defaultModel: string | null = "demucs_unittest", // Use lightweight model for low-resource envs
     memorySafeMode: boolean = true, // Enable memory-safe mode by default
     segmentLength: number = 15 // Process in 15-second chunks
   ) {
@@ -42,24 +42,13 @@ export class DemucsProcessor {
    * Get optimal segment length for htdemucs model based on audio duration
    * htdemucs is more memory-intensive than the deprecated demucs model
    */
-  private getSegmentLength(audioDurationSeconds?: number): number {
-    // htdemucs is a transformer model with a hard segment limit.
-    if (this.defaultModel?.includes('htdemucs')) {
-        return 7; // Use a safe value below the 7.8s limit
+  private getSegmentLength(): number {
+    // demucs_unittest is very light, but we keep segmentation as a good practice
+    // for memory safety, just with a generous default.
+    if (this.memorySafeMode) {
+      return 10; // A safe, reasonable segment length.
     }
-
-    if (!this.memorySafeMode) {
-      return this.segmentLength;
-    }
-    
-    // Fallback for other models if memory safe mode is on
-    if (audioDurationSeconds && audioDurationSeconds > 600) { // 10+ minutes
-      return 8;
-    } else if (audioDurationSeconds && audioDurationSeconds > 300) { // 5+ minutes
-      return 10;
-    }
-    
-    return this.segmentLength; // Default 15s
+    return this.segmentLength; // Use configured length if not in safe mode
   }
   private async checkAudioBackends(): Promise<AudioBackendInfo> {
     const info: AudioBackendInfo = {
@@ -122,7 +111,7 @@ export class DemucsProcessor {
     // Memory optimization parameters for Railway deployment
     if (this.memorySafeMode) {
       // Use optimal segment length based on model and audio duration
-      const segmentLength = this.getSegmentLength(audioDuration);
+      const segmentLength = this.getSegmentLength();
       cmdParts.push('--segment', segmentLength.toString());
       cmdParts.push('--overlap', '0.1');
       cmdParts.push('--shifts', '0');
