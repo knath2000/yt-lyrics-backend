@@ -1,16 +1,29 @@
-# nixpacks.toml for Railway deployment
+# nixpacks.toml for Railway deployment optimized for htdemucs
 # See https://nixpacks.com/docs/configuration/file
 
+[variables]
+NODE_ENV = "production"
+PYTHONUNBUFFERED = "1"
+# Railway memory optimization for htdemucs
+DEMUCS_MODEL = "htdemucs"
+DEMUCS_MEMORY_SAFE = "true"
+
 [phases.setup]
-# Use the official NixOS channel for stability
-nixPkgs = ["...", "ffmpeg-full", "python3", "nodejs-20_x"]
-# Explicitly add packages required by Python dependencies
-aptPkgs = ["...", "libsndfile1", "libgl1-mesa-glx", "build-essential", "libcurl4-openssl-dev"]
+# Core system packages optimized for Railway 1GB limit
+nixPkgs = ["...", "ffmpeg-full", "python3", "nodejs-20_x", "git"]
+# Essential packages for Demucs and audio processing
+aptPkgs = ["...", "libsndfile1", "libgl1-mesa-glx", "build-essential", "libcurl4-openssl-dev", "libfftw3-dev"]
 
 [phases.build]
-# Commands to run before building the application
-cmds = ["npm install --global pnpm", "pnpm install --frozen-lockfile"]
+# Build commands optimized for Railway
+cmds = [
+  "npm install --global pnpm",
+  "pnpm install --frozen-lockfile",
+  # Pre-install Python dependencies to cache them
+  "pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu",
+  "pip install --no-cache-dir -r requirements.txt"
+]
 
 [start]
-# Command to start the application
-cmd = "npm start"
+# Start command with memory optimizations
+cmd = "node --max-old-space-size=512 dist/index.js"

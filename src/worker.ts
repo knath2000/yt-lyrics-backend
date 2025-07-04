@@ -29,6 +29,13 @@ export class TranscriptionWorker {
     demucsModel: string = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
     demucsMemorySafeMode: boolean = true // Default to memory-safe mode for Railway
   ) {
+    // Railway memory optimization: Force memory-safe mode in production
+    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+    if (isRailway) {
+      demucsMemorySafeMode = true;
+      console.log('Railway environment detected: Forcing memory-safe mode for htdemucs');
+    }
+    
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
     this.demucsProcessor = new DemucsProcessor(demucsModel, demucsMemorySafeMode);

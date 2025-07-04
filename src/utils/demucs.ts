@@ -41,12 +41,14 @@ export class DemucsProcessor {
   /**
    * Get optimal segment length for htdemucs model based on audio duration
    * htdemucs is more memory-intensive than the deprecated demucs model
+   * Railway 1GB memory limit requires careful segmentation
    */
   private getSegmentLength(): number {
-    // demucs_unittest is very light, but we keep segmentation as a good practice
-    // for memory safety, just with a generous default.
     if (this.memorySafeMode) {
-      return 10; // A safe, reasonable segment length.
+      // htdemucs requires more conservative segmentation than old demucs
+      // Start with 15s segments, fallback to 10s if memory pressure detected
+      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+      return isRailway ? 10 : 15; // More conservative on Railway due to 1GB limit
     }
     return this.segmentLength; // Use configured length if not in safe mode
   }
@@ -115,7 +117,15 @@ export class DemucsProcessor {
       cmdParts.push('--segment', segmentLength.toString());
       cmdParts.push('--overlap', '0.1');
       cmdParts.push('--shifts', '0');
-      console.log(`Memory-safe mode enabled: ${segmentLength}s segments, 0.1 overlap, no shifts`);
+      
+      // Additional htdemucs memory optimizations for Railway
+      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+      if (isRailway) {
+        cmdParts.push('--jobs', '1'); // Single job to minimize memory usage
+        console.log(`Railway htdemucs optimization: ${segmentLength}s segments, single job, minimal memory footprint`);
+      } else {
+        console.log(`Memory-safe mode enabled: ${segmentLength}s segments, 0.1 overlap, no shifts`);
+      }
     }
 
     const cmdString = `demucs ${cmdParts.join(' ')} "${input}"`;
@@ -124,13 +134,19 @@ export class DemucsProcessor {
     console.log(`Available audio backends: ${backendInfo.backends.join(', ')}`);
 
     try {
-      const { stdout, stderr } = await execAsync(cmdString, { 
+      const { stdout, stderr } = await execAsync(cmdString, {
         maxBuffer: 1024 * 1024 * 10,
         env: {
           ...process.env,
           // Set environment variables for better audio backend compatibility
           TORCHAUDIO_BACKEND: 'soundfile',
-          LIBROSA_CACHE_DIR: path.join(outputDir, '.librosa_cache')
+          LIBROSA_CACHE_DIR: path.join(outputDir, '.librosa_cache'),
+          // Railway memory optimizations for htdemucs
+          OMP_NUM_THREADS: '2', // Limit CPU threads on Railway
+          MKL_NUM_THREADS: '2',
+          NUMBA_CACHE_DIR: path.join(outputDir, '.numba_cache'),
+          // Force CPU device for htdemucs to avoid GPU memory allocation
+          CUDA_VISIBLE_DEVICES: '-1'
         }
       });
       
