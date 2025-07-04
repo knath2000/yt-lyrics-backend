@@ -24,6 +24,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt --upgrade
 
+# Install yt-dlp pre-built binary as a fallback
+RUN wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp_binary && \
+    chmod a+rx /usr/local/bin/yt-dlp_binary
+
 
 # Stage 2: Node.js application build
 FROM node:20-slim as node-builder
@@ -67,6 +71,7 @@ ENV PATH="/home/app/.local/bin:${PATH}"
 # Copy Python environment from builder
 COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=python-builder /usr/local/bin /usr/local/bin
+COPY --from=python-builder /usr/local/bin/yt-dlp_binary /usr/local/bin/yt-dlp_binary
 
 # Copy Node.js application (only production dependencies)
 COPY --from=node-builder /app/package*.json ./
