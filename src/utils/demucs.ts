@@ -24,7 +24,7 @@ export class DemucsProcessor {
   constructor(
     defaultModel: string | null = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
     memorySafeMode: boolean = true, // Enable memory-safe mode by default
-    segmentLength: number = 15 // Process in 15-second chunks
+    segmentLength: number = 7.8 // Process in 7.8-second chunks (htdemucs model limit)
   ) {
     this.defaultModel = defaultModel;
     this.memorySafeMode = memorySafeMode;
@@ -42,15 +42,22 @@ export class DemucsProcessor {
    * Get optimal segment length for htdemucs model based on audio duration
    * htdemucs is more memory-intensive than the deprecated demucs model
    * Railway 1GB memory limit requires careful segmentation
+   * IMPORTANT: htdemucs transformer model has a maximum segment limit of 7.8 seconds
    */
   private getSegmentLength(): number {
+    // htdemucs transformer model maximum segment length is 7.8 seconds
+    const MAX_HTDEMUCS_SEGMENT = 7.8;
+    
     if (this.memorySafeMode) {
       // htdemucs requires more conservative segmentation than old demucs
-      // Start with 15s segments, fallback to 10s if memory pressure detected
+      // Cap at 7.8s to respect model's training constraints
       const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
-      return isRailway ? 10 : 15; // More conservative on Railway due to 1GB limit
+      const preferredLength = isRailway ? 7.8 : 7.8; // Use max safe length for both environments
+      return Math.min(preferredLength, MAX_HTDEMUCS_SEGMENT);
     }
-    return this.segmentLength; // Use configured length if not in safe mode
+    
+    // Even in non-safe mode, respect the model's hard limit
+    return Math.min(this.segmentLength, MAX_HTDEMUCS_SEGMENT);
   }
   private async checkAudioBackends(): Promise<AudioBackendInfo> {
     const info: AudioBackendInfo = {
