@@ -43,25 +43,45 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
   let lastError: Error | null = null;
 
-  // Railway-optimized method order: prioritize non-impersonation methods
+  // Railway-optimized method order: prioritize non-impersonation methods with explicit format handling
   const prioritizedFallbackMethods: YtDlpMethod[] = [
-    // Method 1: No impersonation, but with robust User-Agent and headers (prioritize this for Railway)
+    // Method 1: Railway-optimized with explicit format selection
     {
-      name: "no-impersonation-robust-ua",
-      args: [],
-      description: "No impersonation, robust User-Agent"
+      name: "railway-optimized",
+      args: [
+        "--format", "best[height<=720]/best",
+        "--no-check-certificate",
+        "--extractor-retries", "3"
+      ],
+      description: "Railway-optimized with format fallbacks"
     },
-    // Method 2: Basic yt-dlp with minimal headers, relying on default behavior
+    // Method 2: Simple format selection
     {
-      name: "basic-yt-dlp",
-      args: [],
-      description: "Basic yt-dlp"
+      name: "simple-format",
+      args: [
+        "--format", "worst/best",
+        "--no-playlist"
+      ],
+      description: "Simple format selection"
     },
-    // Method 3: Simple fallback without any special args
+    // Method 3: Audio-only fallback (since we only need audio)
     {
-      name: "simple-fallback",
-      args: ["--no-check-certificate"],
-      description: "Simple fallback with no certificate check"
+      name: "audio-only",
+      args: [
+        "--format", "bestaudio/best",
+        "--extract-audio"
+      ],
+      description: "Audio-only extraction"
+    },
+    // Method 4: Most permissive fallback
+    {
+      name: "permissive-fallback",
+      args: [
+        "--no-check-certificate",
+        "--ignore-errors",
+        "--no-warnings"
+      ],
+      description: "Most permissive fallback"
     }
   ];
 
@@ -103,21 +123,48 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
   for (const method of prioritizedFallbackMethods) {
     console.log(`Attempting download with method: ${method.name} (${method.description})`);
     
-    // Define common yt-dlp options including general impersonation and headers
-    const commonYtDlpArgs = [
+    // Define Railway-optimized yt-dlp options
+    const isRailway = process.env.RAILWAY_ENVIRONMENT_ID || process.env.RAILWAY_PROJECT_ID;
+    
+    // For info command, use minimal args to avoid format issues
+    const infoArgs = [
       "--rm-cache-dir",
       "--no-playlist",
       "--no-warnings",
-      ...method.args, // Inject method-specific arguments here
+      cookieArg
+    ].filter(Boolean);
+
+    // Add Railway-specific robustness for info command
+    if (isRailway) {
+      infoArgs.push(
+        "--no-check-certificate",
+        "--ignore-errors",
+        "--socket-timeout", "30"
+      );
+    }
+    
+    // Add headers for info command
+    infoArgs.push(
+      `--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
+      `--add-header "Accept-Language: en-US,en;q=0.9"`,
+      `--referer "https://www.youtube.com/"`
+    );
+
+    // For download command, include method-specific args
+    const downloadArgs = [
+      "--rm-cache-dir",
+      "--no-playlist",
+      "--no-warnings",
+      ...method.args, // Include method-specific format args
       cookieArg,
-      `--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`, // Updated User-Agent
-      `--add-header "Accept-Language: en-US,en;q=0.9"`, // Add Accept-Language header
-      `--referer "https://www.youtube.com/"` // Ensure consistent Referer header
-    ].filter(Boolean).join(" "); // Filter out empty strings and join
+      `--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"`,
+      `--add-header "Accept-Language: en-US,en;q=0.9"`,
+      `--referer "https://www.youtube.com/"`
+    ].filter(Boolean);
 
     try {
       console.log(`Getting video info for: ${youtubeUrl} using method: ${method.name}`);
-      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${commonYtDlpArgs} \"${youtubeUrl}\"`;
+      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${infoArgs.join(" ")} \"${youtubeUrl}\"`;
       console.log(`Executing info command: ${infoCmd}`);
 
       const infoResult = await execAsync(infoCmd);
@@ -140,7 +187,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
       const outputTemplate = path.join(outputDir, `${safeFilename}.%(ext)s`);
 
       console.log(`Downloading audio with yt-dlp using method: ${method.name}...`);
-      const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" ${commonYtDlpArgs} \"${youtubeUrl}\"`;
+      const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" ${downloadArgs.join(" ")} \"${youtubeUrl}\"`;
       console.log(`Executing download command: ${downloadCmd}`);
       
       const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);
