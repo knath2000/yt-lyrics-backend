@@ -220,6 +220,16 @@ export class YtDlpDownloader {
         fs.writeFileSync(tempCookiePath, cookieContent);
         console.log('Created temporary cookie file from existing cookies');
         return tempCookiePath;
+      } else if (fs.existsSync('/tmp/cookies.txt')) {
+        // Fallback: copy the cookie jar created at startup (if any)
+        try {
+          const cookieContent = fs.readFileSync('/tmp/cookies.txt', 'utf8');
+          fs.writeFileSync(tempCookiePath, cookieContent);
+          console.log('Created temporary cookie file from /tmp/cookies.txt');
+          return tempCookiePath;
+        } catch {
+          // ignore read errors – will return null below
+        }
       }
     } catch (error) {
       console.warn('Failed to create temporary cookie file:', error);

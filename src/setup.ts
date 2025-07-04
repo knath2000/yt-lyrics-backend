@@ -10,11 +10,32 @@ const COOKIE_FILE_PATH = path.join('/tmp', 'cookies.txt');
  * to a temporary file. This file will then be used by yt-dlp.
  */
 export function initializeCookieJar(): string | null {
-  // Get cookie data from the environment variable
-  const cookieData = process.env.YOUTUBE_COOKIES_CONTENT;
+  let cookieData = process.env.YOUTUBE_COOKIES_CONTENT;
 
   if (cookieData) {
     try {
+      // Some platforms (e.g. Fly.io) may mangle new-lines or wrap the value in
+      // quotes which breaks the Netscape cookie file format expected by yt-dlp.
+      // 1. Strip wrapping quotes if present.
+      if (cookieData.startsWith('"') && cookieData.endsWith('"')) {
+        cookieData = cookieData.slice(1, -1);
+      }
+
+      // 2. If value looks like a single-line base64 string, attempt to decode it.
+      //    This allows using `base64 < cookies.txt` when setting the secret so
+      //    we don't have to worry about preserving tabs/newlines in CI.
+      if (!cookieData.includes('\n') && /^[A-Za-z0-9+/=]+$/.test(cookieData.trim())) {
+        try {
+          const decoded = Buffer.from(cookieData, 'base64').toString('utf8');
+          // Basic sanity check – cookie files always start with the Netscape header
+          if (decoded.startsWith('#') || decoded.includes('\t')) {
+            cookieData = decoded;
+          }
+        } catch {
+          // Not valid base64 – fall back to raw value
+        }
+      }
+
       // Ensure the directory for the cookie file exists
       const dir = path.dirname(COOKIE_FILE_PATH);
       if (!fs.existsSync(dir)) {
