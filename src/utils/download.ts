@@ -33,11 +33,10 @@ async function executeCommand(command: string, args: string[]): Promise<string> 
   process.stderr.on("data", (data) => {
     stderr += data.toString();
   });
-
+  
   const [exitCode] = await once(process, "close");
 
   if (exitCode !== 0) {
-    // Combine stdout and stderr for a more complete error message
     const errorMessage = `Command "${command} ${args.join(" ")}" failed with exit code ${exitCode}:\n${stdout}\n${stderr}`;
     throw new Error(errorMessage);
   }
@@ -46,23 +45,24 @@ async function executeCommand(command: string, args: string[]): Promise<string> 
 }
 
 async function getAvailableImpersonationTargets(ytDlpPath: string): Promise<string[]> {
+  const validTargets = new Set(['chrome', 'firefox', 'safari', 'edge', 'opera']);
   try {
     const stdout = await executeCommand(ytDlpPath, ['--list-impersonate-targets']);
     const targets = stdout
       .trim()
       .split('\n')
-      .map(s => s.trim().split(/\s+/)[0].toLowerCase()) // Get first word, make lowercase
-      .filter(s => s && !s.includes('-') && !s.includes('client')); // Filter out headers and invalid lines
+      .map(s => s.trim().split(/\s+/)[0].toLowerCase())
+      .filter(s => validTargets.has(s)); // Only include known valid targets
 
     console.log(`Available yt-dlp impersonation targets: ${targets.join(', ')}`);
     if (targets.length > 0) {
       return targets;
     }
-    console.warn("No valid impersonation targets found, using default fallback.");
-    return ['chrome']; // Sensible fallback
+    console.warn("No valid impersonation targets found from command output, using default fallback.");
+    return ['chrome'];
   } catch (error) {
     console.warn("Could not list yt-dlp impersonation targets, using fallbacks.", error);
-    return ['chrome', 'firefox']; // Sensible fallbacks
+    return ['chrome', 'firefox'];
   }
 }
 
@@ -85,8 +85,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
   const ytDlpPath = await getYtDlpPath();
 
-  const effectiveCookiePath = cookieFilePath || path.resolve(process.cwd(), 'cookies.txt');
-  const cookieArgs = fs.existsSync(effectiveCookiePath) ? [`--cookies`, effectiveCookiePath] : [];
+  const cookieArgs = cookieFilePath && fs.existsSync(cookieFilePath) ? [`--cookies`, cookieFilePath] : [];
 
   let title: string = '';
   let duration: number = 0;
@@ -99,7 +98,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
     duration = parseInt(durationStr, 10) || 0;
   } catch (e) {
     const error = e as Error;
-    console.warn("Could not fetch video metadata ahead of time, may be due to bot detection.", error.message);
+    console.warn("Could not fetch video metadata ahead of time. This might be due to bot detection. Will proceed with download attempts.", error.message);
     title = `video_${Date.now()}`;
   }
   
@@ -107,7 +106,6 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
   const safeFilename = cleanTitle || `audio_${Date.now()}`;
   const outputTemplate = path.join(outputDir, `${safeFilename}.%(ext)s`);
   
-  // --- Create a list of methods to try ---
   const methods: YtDlpMethod[] = [
     { name: "default-best", args: ["-f", "bestaudio/best"], description: "Default best audio" },
   ];
@@ -126,13 +124,12 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
   for (const method of methods) {
     console.log(`Attempting download with method: ${method.name} (${method.description})`);
     
-    // Always include cookie and playlist args in every attempt
     const downloadArgs = [
         youtubeUrl,
         ...cookieArgs,
         ...method.args,
         "--no-playlist",
-        "-x", // extract audio
+        "-x",
         "--audio-format", "mp3",
         "--audio-quality", "0",
         "-o", outputTemplate,
@@ -161,7 +158,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
         };
     } catch (e) {
       lastError = e as Error;
-      console.error(`Method ${method.name} failed:`, lastError.message);
+      console.error(`Method ${method.name} failed:`, lastError.message.substring(0, 500)); // Log a snippet of the error
     }
   }
 
