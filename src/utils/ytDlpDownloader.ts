@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,7 +12,7 @@ export interface DownloadResult {
 export interface DownloadMethod {
   name: string;
   description: string;
-  command: (url: string, outputPath: string, cookiePath?: string) => string;
+  command: (url: string, outputPath: string, cookiePath?: string) => string[];
 }
 
 /**
@@ -52,30 +52,84 @@ export class YtDlpDownloader {
         name: "authenticated-m4a",
         description: "Authenticated, High-Compatibility Format (m4a with cookies)",
         command: (url: string, output: string, cookies?: string) => {
-          const cookieFlag = cookies ? `--cookies "${cookies}"` : '';
-          return `yt-dlp "${url}" -f "bestaudio[ext=m4a]/bestaudio" ${cookieFlag} --no-playlist -x --audio-format mp3 --audio-quality 0 -o "${output}.%(ext)s" --no-check-certificate --ignore-errors --socket-timeout 30 --retries 3`;
+          const args = [
+            url,
+            '-f', 'bestaudio[ext=m4a]/bestaudio',
+            '--no-playlist',
+            '-x',
+            '--audio-format', 'mp3',
+            '--audio-quality', '0',
+            '-o', `${output}.%(ext)s`,
+            '--no-check-certificate',
+            '--ignore-errors',
+            '--socket-timeout', '30',
+            '--retries', '3'
+          ];
+          if (cookies) {
+            args.splice(1, 0, '--cookies', cookies);
+          }
+          return args;
         }
       },
       {
         name: "unauthenticated-m4a",
         description: "Unauthenticated, High-Compatibility Format (m4a without cookies)",
         command: (url: string, output: string) => {
-          return `yt-dlp "${url}" -f "bestaudio[ext=m4a]/bestaudio" --no-playlist -x --audio-format mp3 --audio-quality 0 -o "${output}.%(ext)s" --no-check-certificate --ignore-errors --socket-timeout 30 --retries 3`;
+          return [
+            url,
+            '-f', 'bestaudio[ext=m4a]/bestaudio',
+            '--no-playlist',
+            '-x',
+            '--audio-format', 'mp3',
+            '--audio-quality', '0',
+            '-o', `${output}.%(ext)s`,
+            '--no-check-certificate',
+            '--ignore-errors',
+            '--socket-timeout', '30',
+            '--retries', '3'
+          ];
         }
       },
       {
         name: "authenticated-best",
         description: "Authenticated, Best Available Format (any format with cookies)",
         command: (url: string, output: string, cookies?: string) => {
-          const cookieFlag = cookies ? `--cookies "${cookies}"` : '';
-          return `yt-dlp "${url}" -f "bestaudio/best" ${cookieFlag} --no-playlist -x --audio-format mp3 --audio-quality 0 -o "${output}.%(ext)s" --no-check-certificate --ignore-errors --socket-timeout 30 --retries 3`;
+          const args = [
+            url,
+            '-f', 'bestaudio/best',
+            '--no-playlist',
+            '-x',
+            '--audio-format', 'mp3',
+            '--audio-quality', '0',
+            '-o', `${output}.%(ext)s`,
+            '--no-check-certificate',
+            '--ignore-errors',
+            '--socket-timeout', '30',
+            '--retries', '3'
+          ];
+          if (cookies) {
+            args.splice(1, 0, '--cookies', cookies);
+          }
+          return args;
         }
       },
       {
         name: "unauthenticated-best",
         description: "Unauthenticated, Best Available Format (any format without cookies)",
         command: (url: string, output: string) => {
-          return `yt-dlp "${url}" -f "bestaudio/best" --no-playlist -x --audio-format mp3 --audio-quality 0 -o "${output}.%(ext)s" --no-check-certificate --ignore-errors --socket-timeout 30 --retries 3`;
+          return [
+            url,
+            '-f', 'bestaudio/best',
+            '--no-playlist',
+            '-x',
+            '--audio-format', 'mp3',
+            '--audio-quality', '0',
+            '-o', `${output}.%(ext)s`,
+            '--no-check-certificate',
+            '--ignore-errors',
+            '--socket-timeout', '30',
+            '--retries', '3'
+          ];
         }
       }
     ];
@@ -100,10 +154,10 @@ export class YtDlpDownloader {
             continue;
           }
 
-          const command = method.command(youtubeUrl, baseOutputPath, tempCookieFile || undefined);
-          console.log(`Executing: ${command}`);
+          const args = method.command(youtubeUrl, baseOutputPath, tempCookieFile || undefined);
+          console.log(`Executing: yt-dlp ${args.join(' ')}`);
 
-          execSync(command, { 
+          execFileSync('yt-dlp', args, { 
             stdio: 'pipe',
             timeout: 120000, // 2 minute timeout per attempt
             encoding: 'utf8'
@@ -206,8 +260,8 @@ export class YtDlpDownloader {
    */
   private async getVideoMetadata(youtubeUrl: string): Promise<{ title: string; duration: number }> {
     try {
-      const command = `yt-dlp "${youtubeUrl}" --print "%(title)s|%(duration)s" --no-playlist`;
-      const output = execSync(command, { 
+      const args = [youtubeUrl, '--print', '%(title)s|%(duration)s', '--no-playlist'];
+      const output = execFileSync('yt-dlp', args, { 
         encoding: 'utf8',
         timeout: 30000,
         stdio: 'pipe'
@@ -234,7 +288,7 @@ export class YtDlpDownloader {
    */
   static async checkYtDlpAvailability(): Promise<{ available: boolean; version?: string }> {
     try {
-      const output = execSync('yt-dlp --version', { 
+      const output = execFileSync('yt-dlp', ['--version'], { 
         encoding: 'utf8',
         timeout: 10000,
         stdio: 'pipe'
