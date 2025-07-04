@@ -16,7 +16,7 @@ numpy>=1.24.0
 whisperx>=0.3.0
 pydub>=0.25.1
 # YouTube downloading (also installed via system package in Docker)
-yt-dlp[curl_cffi]>=2024.7.16,<2025.0.0 # Pinned for Railway, with curl-cffi for impersonation
+yt-dlp[default,curl_cffi]==2024.12.13 # Pinned stable version with curl_cffi support
 
 # Utility libraries
 requests>=2.28.0

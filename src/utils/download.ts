@@ -67,14 +67,23 @@ async function getAvailableImpersonationTargets(ytDlpPath: string): Promise<stri
 }
 
 async function getYtDlpPath(): Promise<string> {
-    const binaryPath = '/usr/local/bin/yt-dlp_binary';
+    // Prefer pip-installed yt-dlp with curl_cffi support over pre-built binary
     try {
-        await fs.promises.access(binaryPath, fs.constants.X_OK);
-        console.log(`Using pre-built yt-dlp binary at ${binaryPath}`);
-        return binaryPath;
+        // Test if pip-installed yt-dlp is available and has curl_cffi support
+        const pipYtDlp = 'yt-dlp';
+        console.log('Using pip-installed yt-dlp with curl_cffi support from PATH.');
+        return pipYtDlp;
     } catch {
-        console.log('Pre-built yt-dlp binary not found or not executable, using yt-dlp from PATH.');
-        return 'yt-dlp';
+        // Fallback to pre-built binary (may lack curl_cffi support)
+        const binaryPath = '/usr/local/bin/yt-dlp_binary';
+        try {
+            await fs.promises.access(binaryPath, fs.constants.X_OK);
+            console.log(`Fallback: Using pre-built yt-dlp binary at ${binaryPath} (limited impersonation support)`);
+            return binaryPath;
+        } catch {
+            console.log('No yt-dlp found, using default from PATH.');
+            return 'yt-dlp';
+        }
     }
 }
 

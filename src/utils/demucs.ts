@@ -22,7 +22,7 @@ export class DemucsProcessor {
   private segmentLength: number;
 
   constructor(
-    defaultModel: string | null = "demucs_unittest", // Use lightweight model for low-resource envs
+    defaultModel: string | null = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
     memorySafeMode: boolean = true, // Enable memory-safe mode by default
     segmentLength: number = 15 // Process in 15-second chunks
   ) {

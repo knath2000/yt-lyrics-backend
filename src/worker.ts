@@ -26,7 +26,7 @@ export class TranscriptionWorker {
     openaiApiKey: string,
     workDir = "./temp",
     cookieFilePath: string | null = null,
-    demucsModel: string = "demucs_unittest", // Use lightweight model for low-resource envs
+    demucsModel: string = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
     demucsMemorySafeMode: boolean = true // Default to memory-safe mode for Railway
   ) {
     this.transcriber = new OpenAITranscriber(openaiApiKey);
