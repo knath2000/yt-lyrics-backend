@@ -184,7 +184,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
     try {
       console.log(`Getting video info for: ${youtubeUrl} using method: ${method.name}`);
-      let infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${infoArgs.join(" ")} \"${youtubeUrl}\"`;
+      const infoCmd = `yt-dlp --print \"%(title)s|%(duration)s\" ${infoArgs.join(" ")} "${youtubeUrl}"`;
       console.log(`Executing info command: ${infoCmd}`);
 
       const infoResult = await execAsync(infoCmd);
@@ -207,7 +207,7 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
       const outputTemplate = path.join(outputDir, `${safeFilename}.%(ext)s`);
 
       console.log(`Downloading audio with yt-dlp using method: ${method.name}...`);
-      const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" ${downloadArgs.join(" ")} \"${youtubeUrl}\"`;
+      const downloadCmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" ${downloadArgs.join(" ")} "${youtubeUrl}"`;
       console.log(`Executing download command: ${downloadCmd}`);
       
       const { stdout: downloadOutput, stderr: downloadError } = await execAsync(downloadCmd);

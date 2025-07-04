@@ -110,6 +110,10 @@ export class DemucsProcessor {
       '-o', `"${outputDir}"`,
     ];
 
+    if (this.defaultModel) {
+      cmdParts.unshift('-n', this.defaultModel);
+    }
+
     // Memory optimization parameters for Railway deployment
     if (this.memorySafeMode) {
       // Use optimal segment length for htdemucs model

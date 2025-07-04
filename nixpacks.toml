@@ -1,49 +1,25 @@
-# Railway Deployment Configuration for YouTube Lyrics Backend
-# Optimized for 1GB memory limit with htdemucs model
+# nixpacks.toml
 
 [phases.setup]
+# Install system-level dependencies required for Python packages
 nixPkgs = [
   "python311",
-  "nodejs_20",
-  "npm",
-  "ffmpeg",
-  "pkg-config",
-  "libsndfile",
-  "portaudio",
-  "curl",
-  "git"
+  "ffmpeg-full", # Provides ffmpeg and ffprobe
+  "lame",        # For MP3 encoding with lameenc
+  "git"          # Required for some pip installs
 ]
 
 [phases.install]
 cmds = [
-  # Install PyTorch CPU-only for memory efficiency
-  "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu",
-  # Install Python dependencies
-  "pip install -r requirements.txt",
-  # Install ALL Node.js dependencies (including devDependencies for build)
-  "npm ci"
+  "pip install --upgrade pip",
+  # Install PyTorch with CPU-only specifics for Railway's environment
+  "pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu",
+  # Install other Python dependencies
+  "pip install -r requirements.txt"
 ]
 
 [phases.build]
-cmds = [
-  # Build TypeScript
-  "npm run build",
-  # Remove devDependencies after build to save space
-  "npm prune --production"
-]
+cmds = ["npm run build"]
 
 [start]
-# Force Railway to bypass npm and use direct Node.js execution
-cmd = "exec node dist/index.js"
-# Disable auto-detection of npm start scripts
-nixpkgsArchive = "ad60d7da4cc80997f470e13d769b9c13de5d4635"
-
-[variables]
-# Railway memory optimization environment variables
-PYTORCH_CUDA_ALLOC_CONF = "max_split_size_mb:128"
-TORCHAUDIO_BACKEND = "soundfile"
-NODE_OPTIONS = "--max-old-space-size=512"
-# Demucs memory optimization
-DEMUCS_MEMORY_SAFE = "true"
-DEMUCS_SEGMENT_LENGTH = "15"
-DEMUCS_DEVICE = "cpu"
+cmd = "npm start"
