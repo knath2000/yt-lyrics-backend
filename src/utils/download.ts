@@ -21,7 +21,7 @@ interface YtDlpMethod {
 
 async function getAvailableImpersonationTargets(): Promise<string[]> {
   try {
-    const { stdout } = await execAsync('yt-dlp --print-impersonate-targets');
+    const { stdout } = await execAsync('yt-dlp --list-impersonate-targets');
     const targets = stdout.trim().split('\n').map(s => s.trim()).filter(Boolean);
     console.log(`Available yt-dlp impersonation targets: ${targets.join(', ')}`);
     return targets;
@@ -43,36 +43,9 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
 
   let lastError: Error | null = null;
 
-  // Dynamically get available impersonation targets
-  const availableImpersonationTargets = await getAvailableImpersonationTargets();
-
-  const dynamicMethods: YtDlpMethod[] = [];
-  if (availableImpersonationTargets.length > 0) {
-    for (const target of availableImpersonationTargets) {
-      dynamicMethods.push({
-        name: `${target}-impersonation`,
-        args: ["--impersonate", target],
-        description: `Impersonating ${target}`
-      });
-    }
-  } else {
-    // Fallback known good targets if no dynamic targets are found
-    dynamicMethods.push(
-      {
-        name: "chrome-110-impersonation",
-        args: ["--impersonate", "chrome-110"],
-        description: "Impersonating Chrome 110"
-      },
-      {
-        name: "chrome-99-impersonation",
-        args: ["--impersonate", "chrome-99"],
-        description: "Impersonating Chrome 99"
-      }
-    );
-  }
-
+  // Railway-optimized method order: prioritize non-impersonation methods
   const prioritizedFallbackMethods: YtDlpMethod[] = [
-    // Method 1: No impersonation, but with a robust User-Agent and headers (prioritize this)
+    // Method 1: No impersonation, but with robust User-Agent and headers (prioritize this for Railway)
     {
       name: "no-impersonation-robust-ua",
       args: [],
@@ -84,8 +57,48 @@ async function downloadWithYtDlp(youtubeUrl: string, outputDir: string, cookieFi
       args: [],
       description: "Basic yt-dlp"
     },
-    ...dynamicMethods // Add dynamically detected or hardcoded impersonation methods here
+    // Method 3: Simple fallback without any special args
+    {
+      name: "simple-fallback",
+      args: ["--no-check-certificate"],
+      description: "Simple fallback with no certificate check"
+    }
   ];
+
+  // Only attempt impersonation if we're not in Railway environment
+  const isRailway = process.env.RAILWAY_ENVIRONMENT_ID || process.env.RAILWAY_PROJECT_ID;
+  if (!isRailway) {
+    console.log("Non-Railway environment detected, adding impersonation methods");
+    
+    // Dynamically get available impersonation targets
+    const availableImpersonationTargets = await getAvailableImpersonationTargets();
+
+    if (availableImpersonationTargets.length > 0) {
+      for (const target of availableImpersonationTargets) {
+        prioritizedFallbackMethods.push({
+          name: `${target}-impersonation`,
+          args: ["--impersonate", target],
+          description: `Impersonating ${target}`
+        });
+      }
+    } else {
+      // Fallback known good targets if no dynamic targets are found
+      prioritizedFallbackMethods.push(
+        {
+          name: "chrome-110-impersonation",
+          args: ["--impersonate", "chrome-110"],
+          description: "Impersonating Chrome 110"
+        },
+        {
+          name: "chrome-99-impersonation",
+          args: ["--impersonate", "chrome-99"],
+          description: "Impersonating Chrome 99"
+        }
+      );
+    }
+  } else {
+    console.log("Railway environment detected, skipping impersonation methods");
+  }
 
   for (const method of prioritizedFallbackMethods) {
     console.log(`Attempting download with method: ${method.name} (${method.description})`);
