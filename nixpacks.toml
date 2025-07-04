@@ -27,4 +27,5 @@ cmds = ["npm run build"]
 
 [start]
 # The command to start the application after a successful build
-cmd = "npm start"
+# Fix: Add Python scripts directory to PATH so demucs and whisperx executables can be found
+cmd = "export PATH=$(python -m site --user-base)/bin:$PATH && npm start"
