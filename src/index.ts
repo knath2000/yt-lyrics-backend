@@ -6,16 +6,11 @@ import { initializeCookieJar, setupDatabase } from "./setup.js";
 import { TranscriptionWorker } from "./worker.js";
 import QueueWorker from "./queue-worker.js";
 import { Server } from "http";
-import { v2 as cloudinary } from "cloudinary";
+import { cloudinary } from "./cloudinary.js";
 import { pool } from "./db.js";
 
 // Initialize the cookie jar at application startup
 const cookieFilePath = initializeCookieJar();
-
-// Initialize Cloudinary
-cloudinary.config({
-  cloudinary_url: process.env.CLOUDINARY_URL
-});
 
 // Database pool is imported from centralized db.ts module
 // Database setup will be handled at startup to ensure connectivity

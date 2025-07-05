@@ -1,5 +1,5 @@
 import { TranscriptionWorker } from "./worker.js";
-import { v2 as cloudinary } from "cloudinary";
+import { cloudinary } from "./cloudinary.js";
 import { pool } from "./db.js";
 import { fileURLToPath } from "url";
 
@@ -21,12 +21,7 @@ class QueueWorker {
   private pollInterval = 5000; // 5 seconds
 
   constructor() {
-    // Configure Cloudinary
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
+    // Cloudinary is now configured in the centralized module
 
     // Initialize TranscriptionWorker with required parameters
     const openaiApiKey = process.env.OPENAI_API_KEY;

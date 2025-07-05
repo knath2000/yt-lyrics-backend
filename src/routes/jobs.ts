@@ -3,7 +3,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { readFileSync } from "fs"; // Import readFileSync directly
 import { TranscriptionWorker } from "../worker.js";
-import { v2 as cloudinary } from "cloudinary";
+import { cloudinary } from "../cloudinary.js";
 import { pool } from "../db.js";
 import { jobProgress } from "../queue-worker.js"; // Import shared progress map
 

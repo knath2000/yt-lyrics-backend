@@ -5,7 +5,7 @@ import { OpenAITranscriber } from "./utils/openaiTranscriber.js";
 import { WordAligner } from "./utils/align.js";
 import { WhisperXProcessor } from "./utils/whisperXProcessor.js";
 import { DemucsProcessor } from "./utils/demucs.js";
-import { v2 as cloudinary } from "cloudinary";
+import { cloudinary } from "./cloudinary.js";
 import { Pool } from "pg";
 
 export interface JobProcessingResult {
