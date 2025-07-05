@@ -4,6 +4,7 @@ import cors from "cors";
 import createJobsRouter from "./routes/jobs.js";
 import { initializeCookieJar, setupDatabase } from "./setup.js";
 import { TranscriptionWorker } from "./worker.js";
+import QueueWorker from "./queue-worker.js";
 import { Server } from "http";
 import { v2 as cloudinary } from "cloudinary";
 import { pool } from "./db.js";
@@ -69,6 +70,9 @@ const worker = new TranscriptionWorker(
 
 // Create and use the jobs router, injecting the worker, database pool, and cloudinary
 app.use("/api/jobs", createJobsRouter(worker, cloudinary));
+
+// Initialize queue worker
+let queueWorker: QueueWorker | null = null;
 
 // 🆕 GRACEFUL SHUTDOWN STATE
 let isShuttingDown = false;
@@ -155,7 +159,7 @@ app.get("/metrics", (req, res) => {
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
-// Initialize database before starting server
+// Initialize database and start both server and queue worker
 async function startServer() {
   try {
     console.log("🔄 Setting up database...");
@@ -167,11 +171,26 @@ async function startServer() {
     databaseSetupCompleted = false;
   }
   
+  // Start the HTTP server
   const server: Server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`✅ Backend listening on http://0.0.0.0:${PORT}`);
     console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
     console.log(`✅ Process PID: ${process.pid}`);
   });
+  
+  // Start the queue worker
+  try {
+    console.log("🔄 Starting queue worker...");
+    queueWorker = new QueueWorker();
+    // Start queue worker in background (don't await)
+    queueWorker.start().catch(error => {
+      console.error("❌ Queue worker failed:", error);
+    });
+    console.log("✅ Queue worker started");
+  } catch (error) {
+    console.error("❌ Failed to start queue worker:", error);
+    // Don't fail the entire startup if queue worker fails
+  }
   
   return server;
 }
@@ -234,13 +253,19 @@ async function gracefulShutdown(signal: string): Promise<void> {
       });
     }
 
-    // 3. Cleanup worker resources (since worker.cleanup() no longer takes args)
+    // 3. Stop queue worker
+    console.log("🔄 Stopping queue worker...");
+    if (queueWorker) {
+      queueWorker.stop();
+    }
+
+    // 4. Cleanup worker resources (since worker.cleanup() no longer takes args)
     console.log("🔄 Cleaning up TranscriptionWorker...");
     if (typeof worker.cleanup === 'function') {
       await worker.cleanup();
     }
 
-    // 4. Clear any timers
+    // 5. Clear any timers
     clearTimeout(forceShutdownTimer);
 
     console.log("✅ Graceful shutdown completed successfully");

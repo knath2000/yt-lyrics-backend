@@ -5,6 +5,7 @@ import { readFileSync } from "fs"; // Import readFileSync directly
 import { TranscriptionWorker } from "../worker.js";
 import { v2 as cloudinary } from "cloudinary";
 import { pool } from "../db.js";
+import { jobProgress } from "../queue-worker.js"; // Import shared progress map
 
 interface Job {
   id: string;
@@ -14,10 +15,6 @@ interface Job {
   error?: string;
   statusMessage?: string;
 }
-
-// In-memory job progress tracking (for real-time updates)
-// Database stores persistent job metadata
-const jobProgress = new Map<string, Job>();
 
 // Export a function that creates and returns the router,
 // accepting the worker and cloudinary as dependencies.
@@ -47,8 +44,8 @@ export default function createJobsRouter(
       [id, parse.data.youtubeUrl, 'queued', new Date()]
     );
 
-    // Start processing asynchronously
-    processJobAsync(id, parse.data.youtubeUrl, worker); // Pass worker to async function
+    // DO NOT start processing here - let the queue worker handle it
+    // processJobAsync(id, parse.data.youtubeUrl, worker); // REMOVED - causes SIGTERM
 
     res.status(201).json({ jobId: id });
   });
@@ -84,6 +81,44 @@ export default function createJobsRouter(
         pct: dbJob.status === 'completed' ? 100 : 0,
         resultUrl: dbJob.results_url,
         statusMessage: dbJob.status === 'completed' ? 'Complete!' : 'Processing...',
+        error: dbJob.error_message
+      });
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ error: "Database error" });
+    }
+  });
+
+  // GET /api/jobs/:id/progress - Real-time progress endpoint
+  router.get("/:id/progress", async (req, res) => {
+    // Check in-memory progress for real-time updates
+    const progressJob = jobProgress.get(req.params.id);
+    if (progressJob) {
+      return res.json({
+        status: progressJob.status,
+        pct: progressJob.pct,
+        statusMessage: progressJob.statusMessage,
+        error: progressJob.error
+      });
+    }
+
+    // Fall back to database for completed/queued jobs
+    try {
+      const result = await pool.query(
+        'SELECT id, status, error_message FROM jobs WHERE id = $1',
+        [req.params.id]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      const dbJob = result.rows[0];
+      res.json({
+        status: dbJob.status,
+        pct: dbJob.status === 'completed' ? 100 : 0,
+        statusMessage: dbJob.status === 'completed' ? 'Complete!' :
+                      dbJob.status === 'queued' ? 'Waiting in queue...' : 'Processing...',
         error: dbJob.error_message
       });
     } catch (error) {
