@@ -1,6 +1,7 @@
 import { TranscriptionWorker } from "./worker.js";
 import { v2 as cloudinary } from "cloudinary";
 import { pool } from "./db.js";
+import { fileURLToPath } from "url";
 
 interface Job {
   id: string;
@@ -157,8 +158,8 @@ class QueueWorker {
 // Export the job progress map so the API can access it
 export { jobProgress };
 
-// Main execution - check if this file is being run directly
-if (require.main === module) {
+// Main execution - check if this file is being run directly (ESM compatible)
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const queueWorker = new QueueWorker();
   queueWorker.setupGracefulShutdown();
   queueWorker.start().catch(console.error);
