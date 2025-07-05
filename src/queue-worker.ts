@@ -71,9 +71,9 @@ class QueueWorker {
   private async processNextJob() {
     // Check database for queued jobs
     const result = await pool.query(
-      `SELECT id, youtube_url FROM jobs 
-       WHERE status = 'queued' 
-       ORDER BY created_at ASC 
+      `SELECT id, youtube_url FROM jobs
+       WHERE status = 'queued'
+       ORDER BY created_at ASC
        LIMIT 1`
     );
 
@@ -92,28 +92,23 @@ class QueueWorker {
       ['processing', new Date(), jobId]
     );
 
-    // Create in-memory job tracking
-    const job: Job = { id: jobId, status: "processing", pct: 0 };
-    jobProgress.set(jobId, job);
-
     try {
       // Process the job using the existing worker
       const result = await this.worker.processJob(
         jobId,
         youtubeUrl,
         (pct: number, status: string) => {
-          job.pct = pct;
-          job.statusMessage = status;
+          // Update in-memory progress for real-time API access
+          jobProgress.set(jobId, {
+            id: jobId,
+            status: "processing",
+            pct,
+            statusMessage: status
+          });
           console.log(`Job ${jobId}: ${pct}% - ${status}`);
         }
       );
 
-      // Update job as completed
-      job.status = "done";
-      job.pct = 100;
-      job.resultUrl = result.resultUrl;
-      job.statusMessage = "Complete!";
-      
       // Update database with final result
       await pool.query(
         'UPDATE jobs SET status = $1, progress = $2, results_url = $3, updated_at = $4 WHERE id = $5',
@@ -126,11 +121,6 @@ class QueueWorker {
       jobProgress.delete(jobId);
       
     } catch (error) {
-      // Update job as failed
-      job.status = "error";
-      job.error = (error as Error).message;
-      job.statusMessage = "Failed";
-      
       // Update database with error
       await pool.query(
         'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',

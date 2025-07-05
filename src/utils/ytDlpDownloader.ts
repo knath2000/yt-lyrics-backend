@@ -157,7 +157,7 @@ export class YtDlpDownloader {
           const args = method.command(youtubeUrl, baseOutputPath, tempCookieFile || undefined);
           console.log(`Executing: yt-dlp ${args.join(' ')}`);
 
-          execFileSync('yt-dlp', args, { 
+          const result = execFileSync('yt-dlp', args, {
             stdio: 'pipe',
             timeout: 120000, // 2 minute timeout per attempt
             encoding: 'utf8'
@@ -181,7 +181,21 @@ export class YtDlpDownloader {
 
         } catch (error) {
           lastError = error as Error;
-          console.log(`Method ${method.name} failed: ${lastError.message}`);
+          console.error(`❌ Method ${method.name} failed:`);
+          console.error(`   Error message: ${lastError.message}`);
+          
+          // Log detailed error information for execFileSync errors
+          if (error && typeof error === 'object' && 'stdout' in error && 'stderr' in error) {
+            const execError = error as any; // execFileSync error has stdout, stderr, status properties
+            console.error(`   stdout: ${execError.stdout || '(empty)'}`);
+            console.error(`   stderr: ${execError.stderr || '(empty)'}`);
+            console.error(`   exit code: ${execError.status || 'unknown'}`);
+          }
+          
+          // Log the full command that failed
+          const args = method.command(youtubeUrl, baseOutputPath, tempCookieFile || undefined);
+          console.error(`   Failed command: yt-dlp ${args.join(' ')}`);
+          
           continue;
         }
       }
