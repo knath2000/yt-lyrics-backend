@@ -2,12 +2,39 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import createJobsRouter from "./routes/jobs.js";
-import { initializeCookieJar } from "./setup.js";
+import { initializeCookieJar, setupDatabase } from "./setup.js";
 import { TranscriptionWorker } from "./worker.js";
 import { Server } from "http";
+import { v2 as cloudinary } from "cloudinary";
+import { Pool } from "pg";
 
 // Initialize the cookie jar at application startup
 const cookieFilePath = initializeCookieJar();
+
+// Initialize Cloudinary
+cloudinary.config({
+  cloudinary_url: process.env.CLOUDINARY_URL
+});
+
+// Initialize PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+// Test database connection and setup database
+pool.connect()
+  .then(async (client: any) => {
+    console.log('✅ Connected to PostgreSQL database');
+    client.release();
+    
+    // Setup database tables and indexes
+    await setupDatabase(pool);
+  })
+  .catch((err: any) => {
+    console.error('❌ Error connecting to PostgreSQL database:', err);
+    process.exit(1);
+  });
 
 const app = express();
 
@@ -48,14 +75,16 @@ app.use(express.json());
 const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
 const worker = new TranscriptionWorker(
   process.env.OPENAI_API_KEY || "demo-key",
-  undefined,
+  pool,
+  cloudinary,
+  "./temp",
   cookieFilePath,
   "htdemucs", // Use htdemucs model
   !isProduction // Disable memory-safe mode in production (false = performance mode)
 );
 
-// Create and use the jobs router, injecting the worker
-app.use("/api/jobs", createJobsRouter(worker));
+// Create and use the jobs router, injecting the worker, database pool, and cloudinary
+app.use("/api/jobs", createJobsRouter(worker, pool, cloudinary));
 
 // 🆕 GRACEFUL SHUTDOWN STATE
 let isShuttingDown = false;

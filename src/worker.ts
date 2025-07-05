@@ -5,6 +5,8 @@ import { OpenAITranscriber } from "./utils/openaiTranscriber.js";
 import { WordAligner } from "./utils/align.js";
 import { WhisperXProcessor } from "./utils/whisperXProcessor.js";
 import { DemucsProcessor } from "./utils/demucs.js";
+import { v2 as cloudinary } from "cloudinary";
+import { Pool } from "pg";
 
 export interface JobProcessingResult {
   words: any[];
@@ -22,9 +24,13 @@ export class TranscriptionWorker {
   private workDir: string;
   private cookieFilePath: string | null;
   private activeJobs: Set<string> = new Set(); // 🆕 Track active jobs
+  private dbPool: Pool;
+  private cloudinary: typeof cloudinary;
 
   constructor(
     openaiApiKey: string,
+    dbPool: Pool,
+    cloudinaryInstance: typeof cloudinary,
     workDir = "./temp",
     cookieFilePath: string | null = null,
     demucsModel: string = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
@@ -54,6 +60,8 @@ export class TranscriptionWorker {
       }
     }
     
+    this.dbPool = dbPool;
+    this.cloudinary = cloudinaryInstance;
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
     this.demucsProcessor = new DemucsProcessor(demucsModel, finalMemorySafeMode);
@@ -151,15 +159,45 @@ export class TranscriptionWorker {
       fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
       fs.writeFileSync(srtPath, alignment.srt);
       
+      onProgress?.(95, "Uploading to cloud storage...");
+      
+      // Step 6: Upload results to Cloudinary
+      const uploadResult = await this.cloudinary.uploader.upload(resultsPath, {
+        resource_type: "raw",
+        public_id: `transcriptions/${jobId}/results`,
+        folder: "transcriptions",
+      });
+      
+      const srtUploadResult = await this.cloudinary.uploader.upload(srtPath, {
+        resource_type: "raw",
+        public_id: `transcriptions/${jobId}/subtitles`,
+        folder: "transcriptions",
+      });
+      
+      // Step 7: Save job metadata to database
+      await this.dbPool.query(
+        `INSERT INTO jobs (id, youtube_url, title, duration, status, results_url, srt_url, created_at, completed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          jobId,
+          youtubeUrl,
+          downloadResult.title,
+          downloadResult.duration,
+          'completed',
+          uploadResult.secure_url,
+          srtUploadResult.secure_url,
+          new Date(),
+          new Date()
+        ]
+      );
+      
       onProgress?.(100, "Complete!");
       
-      // TODO: Upload to S3 and return public URL
-      // For now, return local file path
       return {
         words: alignment.words,
         srt: alignment.srt,
         plain: alignment.plain,
-        resultUrl: resultsPath,
+        resultUrl: uploadResult.secure_url,
       };
       
     } catch (error) {

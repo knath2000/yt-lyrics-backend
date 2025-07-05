@@ -17,7 +17,9 @@
     "fluent-ffmpeg": "^2.1.2",
     "openai": "^4.28.4",
     "axios": "^1.6.7",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "cloudinary": "^1.41.3",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "typescript": "^5.4.3",
@@ -26,6 +28,7 @@
     "@types/node": "^20.11.17",
     "@types/fluent-ffmpeg": "^2.1.24",
     "@types/uuid": "^9.0.8",
-    "@types/cors": "^2.8.17"
+    "@types/cors": "^2.8.17",
+    "@types/pg": "^8.10.9"
   }
 } 
