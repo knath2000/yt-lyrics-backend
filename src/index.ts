@@ -22,19 +22,8 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Test database connection and setup database
-pool.connect()
-  .then(async (client: any) => {
-    console.log('✅ Connected to PostgreSQL database');
-    client.release();
-    
-    // Setup database tables and indexes
-    await setupDatabase(pool);
-  })
-  .catch((err: any) => {
-    console.error('❌ Error connecting to PostgreSQL database:', err);
-    process.exit(1);
-  });
+// Database setup will be handled lazily on first use
+// Health check endpoint will verify connectivity
 
 const app = express();
 
@@ -90,20 +79,54 @@ app.use("/api/jobs", createJobsRouter(worker, pool, cloudinary));
 let isShuttingDown = false;
 let shutdownStartTime: number | null = null;
 
-// 🆕 ENHANCED HEALTH CHECK WITH SHUTDOWN STATUS
-app.get("/health", (req, res) => {
-  const health = {
+// 🆕 ENHANCED HEALTH CHECK WITH DATABASE CONNECTIVITY
+app.get("/health", async (req, res) => {
+  const health: any = {
     status: isShuttingDown ? "shutting_down" : "ok",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    database: {
+      status: "unknown",
+      connected: false
+    },
     ...(isShuttingDown && shutdownStartTime && {
       shutdownStartTime: new Date(shutdownStartTime).toISOString(),
       shutdownDuration: Date.now() - shutdownStartTime
     })
   };
+
+  // Test database connectivity
+  try {
+    const result = await pool.query('SELECT NOW() as current_time');
+    health.database.status = "connected";
+    health.database.connected = true;
+    health.database.currentTime = result.rows[0].current_time;
+    
+    // Setup database tables if not already done
+    try {
+      await setupDatabase(pool);
+      health.database.tablesSetup = true;
+    } catch (setupError) {
+      console.warn('Database setup warning:', setupError);
+      health.database.tablesSetup = false;
+      health.database.setupError = (setupError as Error).message;
+    }
+  } catch (dbError) {
+    console.warn('Database health check failed:', dbError);
+    health.database.status = "disconnected";
+    health.database.connected = false;
+    health.database.error = (dbError as Error).message;
+    health.status = "degraded";
+  }
   
-  // Return 503 during shutdown to signal unhealthiness
-  const statusCode = isShuttingDown ? 503 : 200;
+  // Return appropriate status code
+  let statusCode = 200;
+  if (isShuttingDown) {
+    statusCode = 503;
+  } else if (!health.database.connected) {
+    statusCode = 503; // Service unavailable if database is down
+  }
+  
   res.status(statusCode).json(health);
 });
 
