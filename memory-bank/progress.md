@@ -132,9 +132,31 @@ _Last updated: 2025-07-04_
 - **IMPACT**: Restored reliable transcription pipeline without quality tiers
 - **RESULT**: Backend now successfully processing all YouTube URLs again
 
+### 🗄️ MAJOR: Database & Cloud Storage Integration (2025-07-05)
+- **ACHIEVEMENT**: Successfully integrated PostgreSQL database and Cloudinary cloud storage
+- **DATABASE FEATURES**:
+  - PostgreSQL connection with pg pool for efficient connection management
+  - Jobs table with comprehensive schema for tracking transcription jobs
+  - Automatic table creation and setup via `setupDatabase()` function
+  - Health checks with database connectivity verification
+  - Proper indexing for performance (status, created_at)
+- **CLOUD STORAGE FEATURES**:
+  - Cloudinary integration for storing transcription results
+  - JSON results uploaded to `transcriptions/{jobId}/results` folder
+  - SRT files uploaded to `transcriptions/{jobId}/subtitles` folder
+  - Secure URL generation for frontend access
+  - Automatic file organization and management
+- **TECHNICAL IMPLEMENTATION**:
+  - Database schema with proper foreign keys and constraints
+  - Connection pooling for scalability
+  - Error handling for database and storage operations
+  - Environment variable configuration for both services
+- **IMPACT**: Jobs now persist across server restarts, results stored permanently in cloud
+- **RESULT**: Complete production-ready system with persistent storage
+
 ## 🎯 CURRENT STATUS
 
-### Production Readiness: 100% ✅
+### Production Readiness: 100% ✅ WITH PERSISTENT STORAGE
 - **Stable Core**: Rollback to commit 669856c restored reliable operation
 - **Dual Platform**: Both Railway and Fly.io deployments stable
 - **Critical Fixes**: WhisperX compute type & Demucs segment fixes completed
