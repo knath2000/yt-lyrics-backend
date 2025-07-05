@@ -74,6 +74,9 @@ app.use("/api/jobs", createJobsRouter(worker, cloudinary));
 let isShuttingDown = false;
 let shutdownStartTime: number | null = null;
 
+// 🆕 DATABASE SETUP STATE
+let databaseSetupCompleted = false;
+
 // 🆕 ENHANCED HEALTH CHECK WITH DATABASE CONNECTIVITY
 app.get("/health", async (req, res) => {
   const health: any = {
@@ -97,14 +100,21 @@ app.get("/health", async (req, res) => {
     health.database.connected = true;
     health.database.currentTime = result.rows[0].current_time;
     
-    // Setup database tables if not already done
-    try {
-      await setupDatabase();
+    // Setup database tables if not already done (lazy initialization)
+    if (!databaseSetupCompleted) {
+      try {
+        await setupDatabase();
+        health.database.tablesSetup = true;
+        databaseSetupCompleted = true;
+        console.log("✅ Database setup completed via health check");
+      } catch (setupError) {
+        console.warn('Database setup warning:', setupError);
+        health.database.tablesSetup = false;
+        health.database.setupError = (setupError as Error).message;
+        databaseSetupCompleted = false;
+      }
+    } else {
       health.database.tablesSetup = true;
-    } catch (setupError) {
-      console.warn('Database setup warning:', setupError);
-      health.database.tablesSetup = false;
-      health.database.setupError = (setupError as Error).message;
     }
   } catch (dbError) {
     console.warn('Database health check failed:', dbError);
@@ -151,18 +161,19 @@ async function startServer() {
     console.log("🔄 Setting up database...");
     await setupDatabase();
     console.log("✅ Database setup completed");
-    
-    const server: Server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`✅ Backend listening on http://0.0.0.0:${PORT}`);
-      console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
-      console.log(`✅ Process PID: ${process.pid}`);
-    });
-    
-    return server;
+    databaseSetupCompleted = true;
   } catch (error) {
-    console.error("❌ Failed to start server:", error);
-    process.exit(1);
+    console.warn("⚠️ Database setup failed during startup, will retry during health checks:", error);
+    databaseSetupCompleted = false;
   }
+  
+  const server: Server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`✅ Backend listening on http://0.0.0.0:${PORT}`);
+    console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
+    console.log(`✅ Process PID: ${process.pid}`);
+  });
+  
+  return server;
 }
 
 // Start the server
