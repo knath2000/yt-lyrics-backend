@@ -44,10 +44,14 @@ if (isDevelopment) {
 app.use(express.json());
 
 // Create TranscriptionWorker instance
+// Explicitly disable memory-safe mode in production to utilize full 8GB RAM server
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
 const worker = new TranscriptionWorker(
   process.env.OPENAI_API_KEY || "demo-key",
   undefined,
-  cookieFilePath
+  cookieFilePath,
+  "htdemucs", // Use htdemucs model
+  !isProduction // Disable memory-safe mode in production (false = performance mode)
 );
 
 // Create and use the jobs router, injecting the worker
