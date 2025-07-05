@@ -1,17 +1,17 @@
 # Active Context - Backend
 
-_Last updated: 2025-04-07_
+_Last updated: 2025-07-04_
 
 ## Current Focus
-- **DEPLOYMENT STABILIZATION COMPLETE**: All critical deployment issues resolved, system fully stable
-- **PRODUCTION OPTIMIZATION**: Both Railway and Fly.io platforms running optimally with recent fixes
-- **PERFORMANCE EXCELLENCE**: Complete transcription pipeline working flawlessly on both platforms
+- **ROLLBACK COMPLETED**: Successfully rolled back to stable commit 669856c to resolve quality tier issues
+- **TECHNICAL STACK ANALYSIS**: Complete understanding of transcription pipeline components
+- **STABILITY FOCUS**: Maintaining reliable transcription service without quality tiers
 
 ## Current Deployment Status
 
 ### Railway Deployment
 - **URL**: `https://yt-lyrics-backend-production.up.railway.app`
-- **Status**: ✅ ACTIVE AND STABLE
+- **Status**: ✅ ACTIVE AND STABLE (after rollback to commit 669856c)
 - **Configuration**: Uses Railway's container platform with automatic scaling
 - **Signal Handling**: Fixed with direct Node.js execution (`node dist/index.js`)
 
@@ -23,6 +23,22 @@ _Last updated: 2025-04-07_
 - **Health Checks**: Configured with `/health` endpoint monitoring
 
 ## Recent Achievements
+
+### ✅ CRITICAL: Rollback to Stable Commit (2025-07-04)
+- **Issue**: Quality tier system causing download failures with YouTube's anti-bot measures
+- **Solution**: Rolled back to stable commit 669856c before quality tier implementation
+- **Process**: Created backup branch, checked out stable commit, created new branch, pushed to main
+- **Result**: Restored reliable transcription pipeline without quality tiers
+
+### ✅ TECHNICAL: Complete Stack Analysis (2025-07-04)
+- **Achievement**: Fully documented all components of the transcription pipeline
+- **Components**:
+  - **Download**: yt-dlp with multi-strategy fallback system
+  - **Processing**: Demucs htdemucs model with memory-safe configuration
+  - **Transcription**: OpenAI Whisper API (configurable model)
+  - **Alignment**: WhisperX with WAV2VEC2_ASR_BASE_960H model
+- **Dependencies**: All critical libraries and configurations documented
+- **Result**: Complete understanding of system architecture and dependencies
 
 ### ✅ CRITICAL FIXES COMPLETED: Full System Stability (2025-04-07)
 - **WhisperX Compute Type Fix**: Resolved `ValueError: float16 compute type not supported` error
@@ -58,6 +74,37 @@ _Last updated: 2025-04-07_
 - **Solution**: Changed to direct Node.js execution (`node dist/index.js`) for proper SIGTERM handling
 - **Result**: Graceful shutdowns and stable container lifecycle management
 
+## Technical Stack Details
+
+### Audio Processing Pipeline
+- **Stage 1: YouTube Download**
+  - **Tool**: yt-dlp (Python CLI)
+  - **Version**: 2024.12.13 with curl_cffi support
+  - **Fallback Chain**: 8-step strategy with m4a, best, opus, and android formats
+  - **Configuration**: Cookies support, socket timeout, retry settings
+
+- **Stage 2: Vocal Separation**
+  - **Tool**: Demucs (Facebook AI Research)
+  - **Model**: htdemucs (transformer-based)
+  - **Configuration**: 7-second segments, memory-safe mode, CPU device
+  - **Dependencies**: soundfile, librosa audio backends
+
+- **Stage 3: Transcription**
+  - **Tool**: OpenAI Whisper API
+  - **Model**: whisper-1 or configurable via OPENAI_AUDIO_MODEL
+  - **Features**: Word-level timestamps in verbose_json format
+
+- **Stage 4: Alignment**
+  - **Tool**: WhisperX (Python CLI)
+  - **Model**: WAV2VEC2_ASR_BASE_960H
+  - **Configuration**: int8 compute type, 30-second chunks
+  - **Output**: Enhanced word-level timing accuracy
+
+- **Stage 5: Output Generation**
+  - **Tool**: Custom NodeJS code
+  - **Formats**: SRT subtitles, plain text, word-by-word JSON
+  - **Features**: Configurable subtitle grouping (10 words or 5 seconds)
+
 ## Architecture Benefits
 
 ### Platform Redundancy
@@ -73,9 +120,9 @@ _Last updated: 2025-04-07_
 ## Next Steps
 
 ### Immediate Priorities
-1. **Monitor Performance Metrics**: Collect data on completion times and success rates for both platforms
-2. **Optimize Based on Data**: Use racing results to identify performance bottlenecks
-3. **Cost Analysis**: Monitor resource usage and costs across both platforms
+1. **Monitor Stability**: Ensure rollback continues to provide reliable service
+2. **Consider Quality Options**: Evaluate alternative approaches to quality tiers that don't break YouTube downloads
+3. **Document Learnings**: Update memory bank with technical insights from rollback experience
 
 ### Future Enhancements
 1. **Smart Routing**: Implement intelligent routing based on historical performance data
@@ -85,6 +132,7 @@ _Last updated: 2025-04-07_
 ## Known Issues
 - **RESOLVED**: All critical deployment issues have been fixed
 - **Previous Issues (Now Fixed)**:
+  - ❌ Quality tier system causing YouTube download failures → ✅ Fixed with rollback to commit 669856c
   - ❌ `ValueError: float16 compute type not supported` → ✅ Fixed with int8 compute type
   - ❌ `invalid int value: '7.8'` in demucs CLI → ✅ Fixed with integer segment length
 - **Current Status**: Zero known blocking issues, system fully operational
@@ -92,7 +140,9 @@ _Last updated: 2025-04-07_
 ## Timeline
 | Date       | Milestone                               |
 |------------|-----------------------------------------|
-| 2025-04-07 | **CURRENT**: All critical fixes completed - WhisperX compute type & Demucs segment fixes |
+| 2025-07-04 | **CURRENT**: Rollback to stable commit 669856c |
+| 2025-07-04 | Technical stack analysis completed |
+| 2025-04-07 | All critical fixes completed - WhisperX compute type & Demucs segment fixes |
 | 2025-04-07 | Demucs segment integer fix (7.8 → 7) implemented |
 | 2025-04-07 | WhisperX compute type fix (float16 → int8) implemented |
 | 2025-04-07 | Dual deployment architecture fully operational |

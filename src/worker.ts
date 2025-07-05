@@ -28,18 +28,35 @@ export class TranscriptionWorker {
     workDir = "./temp",
     cookieFilePath: string | null = null,
     demucsModel: string = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
-    demucsMemorySafeMode: boolean = true // Default to memory-safe mode for Railway
+    demucsMemorySafeMode?: boolean // Optional override for memory-safe mode
   ) {
-    // Railway memory optimization: Force memory-safe mode in production
-    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
-    if (isRailway) {
-      demucsMemorySafeMode = true;
-      console.log('Railway environment detected: Forcing memory-safe mode for htdemucs');
+    // Determine memory-safe mode: respect env var or explicit param, otherwise optimize for production
+    const isProduction = process.env.NODE_ENV === 'production';
+    const memorySafeEnv = process.env.DEMUCS_MEMORY_SAFE;
+    
+    let finalMemorySafeMode: boolean;
+    
+    if (demucsMemorySafeMode !== undefined) {
+      // If explicitly passed in, use that value
+      finalMemorySafeMode = demucsMemorySafeMode;
+      console.log(`Demucs memory-safe mode explicitly set to: ${finalMemorySafeMode}`);
+    } else if (memorySafeEnv !== undefined) {
+      // Otherwise, respect the environment variable
+      finalMemorySafeMode = memorySafeEnv.toLowerCase() === 'true';
+      console.log(`DEMUCS_MEMORY_SAFE environment variable found: ${finalMemorySafeMode}`);
+    } else {
+      // Default to false in production to use full server resources (8GB RAM upgrade)
+      finalMemorySafeMode = !isProduction;
+      if (isProduction) {
+        console.log('Production environment: Defaulting to memory-safe mode OFF to utilize full server resources (8GB RAM)');
+      } else {
+        console.log('Development environment: Defaulting to memory-safe mode ON for safety');
+      }
     }
     
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
-    this.demucsProcessor = new DemucsProcessor(demucsModel, demucsMemorySafeMode);
+    this.demucsProcessor = new DemucsProcessor(demucsModel, finalMemorySafeMode);
     this.whisperXProcessor = new WhisperXProcessor();
     this.ytDlpDownloader = new YtDlpDownloader(cookieFilePath || undefined);
     this.workDir = workDir;

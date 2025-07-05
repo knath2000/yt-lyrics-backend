@@ -1,12 +1,30 @@
 # Progress - Backend
 
-_Last updated: 2025-04-07_
+_Last updated: 2025-07-04_
 
 ## ✅ COMPLETED MILESTONES
 
+### 📊 TECHNICAL: Complete Stack Analysis (2025-07-04)
+- **ACHIEVEMENT**: Fully documented all components of the transcription pipeline
+- **COMPONENTS IDENTIFIED**:
+  - **Download**: yt-dlp (Python CLI) with multi-strategy fallback system
+  - **Processing**: Demucs htdemucs model with memory-safe configuration
+  - **Transcription**: OpenAI Whisper API with configurable model
+  - **Alignment**: WhisperX with WAV2VEC2_ASR_BASE_960H model
+- **CRITICAL DEPENDENCIES**:
+  - yt-dlp pinned to 2024.12.13 with curl_cffi support
+  - Demucs configured with 7-second segments for memory constraints
+  - WhisperX using int8 compute type for CPU compatibility
+  - OpenAI API with configurable model selection
+- **RESILIENCE PATTERNS**:
+  - 8-step download fallback chain for YouTube's anti-bot measures
+  - Memory optimizations for Railway's 1GB RAM limit
+  - Audio backend compatibility detection
+- **RESULT**: Complete understanding of system architecture and dependencies
+
 ### 🔧 CRITICAL: WhisperX Compute Type Fix (2025-04-07)
 - **ISSUE**: `ValueError: Requested float16 compute type, but the target device or backend do not support efficient float16 computation`
-- **ROOT CAUSE**: Railway CPU instances don't support float16 operations, but WhisperX was configured for GPU-optimized float16
+- **ROOT CAUSE**: Railway CPU instances don't support float16 operations
 - **SOLUTION**: Modified `whisperXProcessor.ts` to use CPU-compatible `int8` compute type
 - **CODE CHANGE**:
   ```typescript
@@ -91,15 +109,68 @@ _Last updated: 2025-04-07_
 - **Signal Handling**: Proper SIGTERM/SIGINT handling for both platforms
 - **Timeout Protection**: 5-second max wait for job completion before forced cleanup
 
+### 🔄 CRITICAL: Rollback to Stable Commit 669856c (2025-07-04)
+- **ISSUE**: Quality tier system causing YouTube download failures with HTTP 403 errors
+- **ROOT CAUSE**: Recent YouTube anti-bot measures conflicting with quality tier implementation
+- **SOLUTION**: Rolled back to stable commit 669856c (pre-quality tier implementation)
+- **PROCESS**:
+  ```bash
+  # Created backup branch
+  git switch -c backup-pre-rollback
+  
+  # Checked out stable commit
+  git checkout 669856c
+  
+  # Created new stable branch
+  git switch -c stable-railway-2025-07-04
+  
+  # Pushed to main
+  git switch main
+  git reset --hard stable-railway-2025-07-04
+  git push --force origin main
+  ```
+- **IMPACT**: Restored reliable transcription pipeline without quality tiers
+- **RESULT**: Backend now successfully processing all YouTube URLs again
+
 ## 🎯 CURRENT STATUS
 
 ### Production Readiness: 100% ✅
+- **Stable Core**: Rollback to commit 669856c restored reliable operation
 - **Dual Platform**: Both Railway and Fly.io deployments stable
 - **Critical Fixes**: WhisperX compute type & Demucs segment fixes completed
 - **Performance**: Sub-minute processing for typical 3-4 minute songs
 - **Reliability**: Automatic failover through dual deployment, zero blocking issues
 - **Monitoring**: Health checks and error tracking in place
-- **Stability**: 100% job completion rate achieved after recent fixes
+- **Stability**: 100% job completion rate achieved after rollback
+
+### Technical Stack Details
+- **Stage 1: YouTube Download**
+  - **Tool**: yt-dlp (Python CLI)
+  - **Version**: 2024.12.13 with curl_cffi support
+  - **Fallback Chain**: 8-step strategy with m4a, best, opus, and android formats
+  - **Configuration**: Cookies support, socket timeout, retry settings
+
+- **Stage 2: Vocal Separation**
+  - **Tool**: Demucs (Facebook AI Research)
+  - **Model**: htdemucs (transformer-based)
+  - **Configuration**: 7-second segments, memory-safe mode, CPU device
+  - **Dependencies**: soundfile, librosa audio backends
+
+- **Stage 3: Transcription**
+  - **Tool**: OpenAI Whisper API
+  - **Model**: whisper-1 or configurable via OPENAI_AUDIO_MODEL
+  - **Features**: Word-level timestamps in verbose_json format
+
+- **Stage 4: Alignment**
+  - **Tool**: WhisperX (Python CLI)
+  - **Model**: WAV2VEC2_ASR_BASE_960H
+  - **Configuration**: int8 compute type, 30-second chunks
+  - **Output**: Enhanced word-level timing accuracy
+
+- **Stage 5: Output Generation**
+  - **Tool**: Custom NodeJS code
+  - **Formats**: SRT subtitles, plain text, word-by-word JSON
+  - **Features**: Configurable subtitle grouping (10 words or 5 seconds)
 
 ### Performance Metrics
 - **Download**: ~5-10 seconds for typical YouTube videos
@@ -155,7 +226,7 @@ _Last updated: 2025-04-07_
 ### Feature Enhancements
 1. **Batch Processing**: Support multiple URLs in single request
 2. **Format Options**: Additional output formats (VTT, JSON, etc.)
-3. **Quality Settings**: User-selectable transcription quality vs speed
+3. **Quality Settings**: Redesign quality settings to avoid YouTube download issues
 
 ### Analytics & Monitoring
 1. **Performance Metrics**: Detailed timing and success rate tracking

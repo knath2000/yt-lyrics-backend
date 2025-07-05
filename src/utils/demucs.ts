@@ -41,7 +41,7 @@ export class DemucsProcessor {
   /**
    * Get optimal segment length for htdemucs model based on audio duration
    * htdemucs is more memory-intensive than the deprecated demucs model
-   * Railway 1GB memory limit requires careful segmentation
+   * Railway 8GB memory allows for better performance when not in memory-safe mode
    * IMPORTANT: htdemucs transformer model has a maximum segment limit of 7.8 seconds
    */
   private getSegmentLength(): number {
@@ -106,7 +106,7 @@ export class DemucsProcessor {
       );
     }
 
-    // Railway-optimized Demucs options for 1GB RAM limit
+    // Railway-optimized Demucs options (8GB RAM, 8 vCPUs available)
     const cmdParts = [
       '--two-stems=vocals',
       '--mp3',  // Use MP3 output format (more compatible)
@@ -125,15 +125,16 @@ export class DemucsProcessor {
       cmdParts.push('--segment', segmentLength.toString());
       cmdParts.push('--overlap', '0.1');
       cmdParts.push('--shifts', '0');
-      
-      // Additional htdemucs memory optimizations for Railway
-      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
-      if (isRailway) {
-        cmdParts.push('--jobs', '1'); // Single job to minimize memory usage
-        console.log(`Railway htdemucs optimization: ${segmentLength}s segments, single job, minimal memory footprint`);
-      } else {
-        console.log(`Memory-safe mode enabled: ${segmentLength}s segments, 0.1 overlap, no shifts`);
-      }
+      cmdParts.push('--jobs', '1'); // Single job to minimize memory usage
+      console.log(`Memory-safe mode enabled: ${segmentLength}s segments, 0.1 overlap, no shifts, single job`);
+    } else {
+      // Optimized settings for upgraded server (8 vCPUs, 8GB RAM)
+      const segmentLength = this.getSegmentLength();
+      cmdParts.push('--segment', segmentLength.toString());
+      cmdParts.push('--overlap', '0.25'); // Better quality with more overlap
+      cmdParts.push('--shifts', '1'); // Enable shifts for better separation quality
+      cmdParts.push('--jobs', '2'); // Use 2 parallel jobs with 8GB RAM
+      console.log(`Performance mode enabled: ${segmentLength}s segments, 0.25 overlap, 1 shift, 2 parallel jobs (8GB RAM server)`);
     }
 
     const cmdString = `demucs ${cmdParts.join(' ')} "${input}"`;
@@ -149,9 +150,9 @@ export class DemucsProcessor {
           // Set environment variables for better audio backend compatibility
           TORCHAUDIO_BACKEND: 'soundfile',
           LIBROSA_CACHE_DIR: path.join(outputDir, '.librosa_cache'),
-          // Railway memory optimizations for htdemucs
-          OMP_NUM_THREADS: '2', // Limit CPU threads on Railway
-          MKL_NUM_THREADS: '2',
+          // CPU thread optimization based on server resources
+          OMP_NUM_THREADS: this.memorySafeMode ? '2' : '6', // Use 6 threads for 8 vCPU server (leave 2 for system)
+          MKL_NUM_THREADS: this.memorySafeMode ? '2' : '6',
           NUMBA_CACHE_DIR: path.join(outputDir, '.numba_cache'),
           // Force CPU device for htdemucs to avoid GPU memory allocation
           CUDA_VISIBLE_DEVICES: '-1'
