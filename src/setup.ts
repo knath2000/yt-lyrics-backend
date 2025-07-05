@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { pool } from "./db.js";
 import fs from "fs";
 import path from "path";
 
@@ -14,7 +14,7 @@ export function initializeCookieJar(): string {
   return cookieFilePath;
 }
 
-export async function setupDatabase(pool: Pool): Promise<void> {
+export async function setupDatabase(): Promise<void> {
   try {
     // Create jobs table if it doesn't exist
     await pool.query(`

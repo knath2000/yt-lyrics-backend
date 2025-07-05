@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { readFileSync } from "fs"; // Import readFileSync directly
 import { TranscriptionWorker } from "../worker.js";
 import { v2 as cloudinary } from "cloudinary";
-import { Pool } from "pg";
+import { pool } from "../db.js";
 
 interface Job {
   id: string;
@@ -20,10 +20,10 @@ interface Job {
 const jobProgress = new Map<string, Job>();
 
 // Export a function that creates and returns the router,
-// accepting the worker, database pool, and cloudinary as dependencies.
+// accepting the worker and cloudinary as dependencies.
+// Database pool is imported from centralized db.ts module.
 export default function createJobsRouter(
   worker: TranscriptionWorker,
-  dbPool: Pool,
   cloudinaryInstance: typeof cloudinary
 ): Router {
   const router = Router();
@@ -41,14 +41,14 @@ export default function createJobsRouter(
     jobProgress.set(id, job);
 
     // Initialize job in database
-    await dbPool.query(
+    await pool.query(
       `INSERT INTO jobs (id, youtube_url, status, created_at)
        VALUES ($1, $2, $3, $4)`,
       [id, parse.data.youtubeUrl, 'queued', new Date()]
     );
 
     // Start processing asynchronously
-    processJobAsync(id, parse.data.youtubeUrl, worker, dbPool); // Pass worker and dbPool to async function
+    processJobAsync(id, parse.data.youtubeUrl, worker); // Pass worker to async function
 
     res.status(201).json({ jobId: id });
   });
@@ -69,7 +69,7 @@ export default function createJobsRouter(
 
     // Fall back to database for completed jobs
     try {
-      const result = await dbPool.query(
+      const result = await pool.query(
         'SELECT id, status, results_url, error_message FROM jobs WHERE id = $1',
         [req.params.id]
       );
@@ -96,7 +96,7 @@ export default function createJobsRouter(
   router.get("/:id/result", async (req, res) => {
     try {
       // Get job from database
-      const result = await dbPool.query(
+      const result = await pool.query(
         'SELECT id, status, results_url FROM jobs WHERE id = $1',
         [req.params.id]
       );
@@ -121,7 +121,7 @@ export default function createJobsRouter(
   });
 
   // Async job processing function
-  async function processJobAsync(jobId: string, youtubeUrl: string, workerInstance: TranscriptionWorker, dbPool: Pool) {
+  async function processJobAsync(jobId: string, youtubeUrl: string, workerInstance: TranscriptionWorker) {
     const job = jobProgress.get(jobId);
     if (!job) return;
 
@@ -130,7 +130,7 @@ export default function createJobsRouter(
       job.statusMessage = "Starting...";
       
       // Update database status
-      await dbPool.query(
+      await pool.query(
         'UPDATE jobs SET status = $1, updated_at = $2 WHERE id = $3',
         ['processing', new Date(), jobId]
       );
@@ -161,7 +161,7 @@ export default function createJobsRouter(
       job.statusMessage = "Failed";
       
       // Update database with error
-      await dbPool.query(
+      await pool.query(
         'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
         ['error', (error as Error).message, new Date(), jobId]
       );

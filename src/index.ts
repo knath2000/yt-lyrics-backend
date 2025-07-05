@@ -6,7 +6,7 @@ import { initializeCookieJar, setupDatabase } from "./setup.js";
 import { TranscriptionWorker } from "./worker.js";
 import { Server } from "http";
 import { v2 as cloudinary } from "cloudinary";
-import { Pool } from "pg";
+import { pool } from "./db.js";
 
 // Initialize the cookie jar at application startup
 const cookieFilePath = initializeCookieJar();
@@ -16,12 +16,7 @@ cloudinary.config({
   cloudinary_url: process.env.CLOUDINARY_URL
 });
 
-// Initialize PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
+// Database pool is imported from centralized db.ts module
 // Database setup will be handled lazily on first use
 // Health check endpoint will verify connectivity
 
@@ -73,7 +68,7 @@ const worker = new TranscriptionWorker(
 );
 
 // Create and use the jobs router, injecting the worker, database pool, and cloudinary
-app.use("/api/jobs", createJobsRouter(worker, pool, cloudinary));
+app.use("/api/jobs", createJobsRouter(worker, cloudinary));
 
 // 🆕 GRACEFUL SHUTDOWN STATE
 let isShuttingDown = false;
@@ -104,7 +99,7 @@ app.get("/health", async (req, res) => {
     
     // Setup database tables if not already done
     try {
-      await setupDatabase(pool);
+      await setupDatabase();
       health.database.tablesSetup = true;
     } catch (setupError) {
       console.warn('Database setup warning:', setupError);
