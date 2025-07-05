@@ -1,4 +1,4 @@
-// youtube-lyrics-backend/src/db.ts
+// src/db.ts
 import { Pool } from "pg";
 
 export const pool = new Pool({
