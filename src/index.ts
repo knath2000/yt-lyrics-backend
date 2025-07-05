@@ -17,7 +17,7 @@ cloudinary.config({
 });
 
 // Database pool is imported from centralized db.ts module
-// Database setup will be handled lazily on first use
+// Database setup will be handled at startup to ensure connectivity
 // Health check endpoint will verify connectivity
 
 const app = express();
@@ -144,10 +144,34 @@ app.get("/metrics", (req, res) => {
 });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
-const server: Server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Backend listening on http://0.0.0.0:${PORT}`);
-  console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
-  console.log(`✅ Process PID: ${process.pid}`);
+
+// Initialize database before starting server
+async function startServer() {
+  try {
+    console.log("🔄 Setting up database...");
+    await setupDatabase();
+    console.log("✅ Database setup completed");
+    
+    const server: Server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`✅ Backend listening on http://0.0.0.0:${PORT}`);
+      console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
+      console.log(`✅ Process PID: ${process.pid}`);
+    });
+    
+    return server;
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+let server: Server;
+startServer().then(s => {
+  server = s;
+}).catch(error => {
+  console.error("❌ Failed to start server:", error);
+  process.exit(1);
 });
 
 // 🆕 GRACEFUL SHUTDOWN FUNCTION
@@ -165,35 +189,39 @@ async function gracefulShutdown(signal: string): Promise<void> {
   try {
     // 1. Stop accepting new connections
     console.log("🔄 Stopping server from accepting new connections...");
-    server.close((err) => {
-      if (err) {
-        console.error("❌ Error closing server:", err);
-      } else {
-        console.log("✅ Server closed successfully");
-      }
-    });
+    if (server) {
+      server.close((err) => {
+        if (err) {
+          console.error("❌ Error closing server:", err);
+        } else {
+          console.log("✅ Server closed successfully");
+        }
+      });
+    }
 
     // 2. Wait for existing connections to finish (with timeout)
-    await new Promise<void>((resolve) => {
-      const checkConnections = () => {
-        // @ts-ignore - accessing internal server state
-        const connections = server._connections;
-        if (connections === 0) {
-          console.log("✅ All connections closed");
+    if (server) {
+      await new Promise<void>((resolve) => {
+        const checkConnections = () => {
+          // @ts-ignore - accessing internal server state
+          const connections = server._connections;
+          if (connections === 0) {
+            console.log("✅ All connections closed");
+            resolve();
+          } else {
+            console.log(`🔄 Waiting for ${connections} connections to close...`);
+            setTimeout(checkConnections, 100);
+          }
+        };
+        
+        // Start checking immediately, but also set a timeout
+        checkConnections();
+        setTimeout(() => {
+          console.log("⚠️ Connection close timeout, proceeding with shutdown");
           resolve();
-        } else {
-          console.log(`🔄 Waiting for ${connections} connections to close...`);
-          setTimeout(checkConnections, 100);
-        }
-      };
-      
-      // Start checking immediately, but also set a timeout
-      checkConnections();
-      setTimeout(() => {
-        console.log("⚠️ Connection close timeout, proceeding with shutdown");
-        resolve();
-      }, 5000);
-    });
+        }, 5000);
+      });
+    }
 
     // 3. Cleanup worker resources (since worker.cleanup() no longer takes args)
     console.log("🔄 Cleaning up TranscriptionWorker...");
