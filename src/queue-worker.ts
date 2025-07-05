@@ -114,6 +114,12 @@ class QueueWorker {
       job.resultUrl = result.resultUrl;
       job.statusMessage = "Complete!";
       
+      // Update database with final result
+      await pool.query(
+        'UPDATE jobs SET status = $1, progress = $2, results_url = $3, updated_at = $4 WHERE id = $5',
+        ['completed', 100, result.resultUrl, new Date(), jobId]
+      );
+      
       console.log(`✅ Job ${jobId} completed successfully`);
       
       // Remove from in-memory store since it's now in database
