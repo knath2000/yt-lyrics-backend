@@ -174,20 +174,26 @@ export class TranscriptionWorker {
         folder: "transcriptions",
       });
       
-      // Step 7: Save job metadata to database
+      // Step 7: Update job metadata in database
       await this.dbPool.query(
-        `INSERT INTO jobs (id, youtube_url, title, duration, status, results_url, srt_url, created_at, completed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        `UPDATE jobs SET
+         title = $1,
+         duration = $2,
+         status = $3,
+         results_url = $4,
+         srt_url = $5,
+         updated_at = $6,
+         completed_at = $7
+         WHERE id = $8`,
         [
-          jobId,
-          youtubeUrl,
           downloadResult.title,
           downloadResult.duration,
           'completed',
           uploadResult.secure_url,
           srtUploadResult.secure_url,
           new Date(),
-          new Date()
+          new Date(),
+          jobId
         ]
       );
       
