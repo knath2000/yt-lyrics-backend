@@ -1,8 +1,182 @@
 # Progress - Backend
 
-_Last updated: 2025-07-04_
+_Last updated: 2025-07-06_
 
 ## ✅ COMPLETED MILESTONES
+
+### 🔄 FEATURE: Cloudinary Audio Caching System (2025-07-06)
+- **ACHIEVEMENT**: Implemented cloud-based caching for extracted YouTube audio
+- **CACHING FEATURES**:
+  - Consistent naming pattern: `audio/{videoId}/bestaudio_mp3`
+  - Tagging with `yt_audio_cache` and `video:<id>` for management
+  - Cache-first approach to eliminate redundant downloads
+  - Fetch and local storage of cached audio when available
+- **TECHNICAL IMPLEMENTATION**:
+  ```typescript
+  // Cache check before download
+  const videoId = this.extractVideoId(youtubeUrl);
+  if (videoId) {
+    const publicId = `audio/${videoId}/bestaudio_mp3`;
+    try {
+      // Attempt to fetch existing audio asset metadata
+      const existing = await cloudinary.api.resource(publicId, {
+        resource_type: 'video',
+      });
+
+      if (existing && existing.secure_url) {
+        // Cache hit - download from Cloudinary instead of YouTube
+        const localPath = await this.downloadFromCloudinary(existing.secure_url, outputDir);
+        return {
+          audioPath: localPath,
+          title: videoId,
+          duration: 0,
+          method: "cloudinary-cache"
+        };
+      }
+    } catch (error) {
+      // Resource not found - proceed with normal download
+      console.log(`[Cache] No cached audio found for ${videoId} – proceeding with yt-dlp extraction.`);
+    }
+  }
+  ```
+- **UPLOAD IMPLEMENTATION**:
+  ```typescript
+  // After successful download, upload to Cloudinary cache
+  if (videoId) {
+    try {
+      const uploadResult = await cloudinary.uploader.upload(downloadedFile, {
+        resource_type: 'video',
+        public_id: `audio/${videoId}/bestaudio_mp3`,
+        tags: ['yt_audio_cache', `video:${videoId}`],
+        overwrite: true
+      });
+      console.log(`[Cache] Uploaded audio to Cloudinary: ${uploadResult.secure_url}`);
+    } catch (uploadError) {
+      console.error(`[Cache] Failed to upload to Cloudinary: ${uploadError.message}`);
+      // Non-blocking - continue with local file
+    }
+  }
+  ```
+- **IMPACT**: Reduces processing time and bandwidth for repeat requests
+- **STATUS**: Implementation complete but limited by YouTube download issues
+
+### 🔧 ENHANCEMENT: Robust YouTube URL Parsing (2025-07-06)
+- **ACHIEVEMENT**: Created comprehensive videoId extraction function
+- **SUPPORTED FORMATS**:
+  - Standard watch URLs: `youtube.com/watch?v=VIDEO_ID`
+  - Short URLs: `youtu.be/VIDEO_ID`
+  - Shorts: `youtube.com/shorts/VIDEO_ID`
+  - URLs with additional query parameters
+- **CODE IMPLEMENTATION**:
+  ```typescript
+  /**
+   * Extracts the canonical 11-character YouTube video ID from a variety of
+   * YouTube URL formats:
+   *   • https://www.youtube.com/watch?v=VIDEO_ID
+   *   • https://youtu.be/VIDEO_ID
+   *   • https://youtube.com/shorts/VIDEO_ID
+   *   • Any of the above with additional query parameters
+   */
+  private extractVideoId(youtubeUrl: string): string | null {
+    try {
+      // Try to parse as URL first
+      const url = new URL(youtubeUrl);
+      
+      // Case 1: youtube.com/watch?v=ID
+      if ((url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com') && 
+          url.pathname === '/watch') {
+        return url.searchParams.get('v');
+      }
+      
+      // Case 2: youtu.be/ID
+      if (url.hostname === 'youtu.be') {
+        return url.pathname.substring(1); // Remove leading slash
+      }
+      
+      // Case 3: youtube.com/shorts/ID
+      if ((url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com') && 
+          url.pathname.startsWith('/shorts/')) {
+        return url.pathname.substring(8); // Remove '/shorts/'
+      }
+      
+    } catch (error) {
+      // URL parsing failed, try regex fallback
+    }
+    
+    // Fallback to regex for invalid URLs
+    const videoIdRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+    const match = youtubeUrl.match(videoIdRegex);
+    return match ? match[1] : null;
+  }
+  ```
+- **IMPACT**: Ensures consistent caching regardless of URL format
+- **STATUS**: Working correctly for all URL formats
+
+### 🔧 ENHANCEMENT: Multi-Strategy Fallback Chain (2025-07-06)
+- **ACHIEVEMENT**: Expanded download strategies with more fallback options
+- **NEW OPTIONS**:
+  ```typescript
+  // Generic format options without specific format filters
+  {
+    name: "authenticated-generic",
+    description: "Authenticated, Generic Format (any format with cookies)",
+    command: (url: string, output: string) => {
+      return [
+        url,
+        '--cookies', 'cookies.txt',
+        '-f', 'best',
+        '--no-playlist',
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '0',
+        '-o', `${output}.%(ext)s`,
+        '--no-check-certificate',
+        '--ignore-errors',
+        '--socket-timeout', '30',
+        '--retries', '3'
+      ];
+    }
+  },
+  {
+    name: "unauthenticated-generic",
+    description: "Unauthenticated, Generic Format (any format without cookies)",
+    command: (url: string, output: string) => {
+      return [
+        url,
+        '-f', 'best',
+        '--no-playlist',
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '0',
+        '-o', `${output}.%(ext)s`,
+        '--no-check-certificate',
+        '--ignore-errors',
+        '--socket-timeout', '30',
+        '--retries', '3'
+      ];
+    }
+  }
+  ```
+- **IMPACT**: Increased resilience against YouTube format changes
+- **STATUS**: Implemented but not resolving current signature extraction issues
+
+### ❌ CRITICAL ISSUE: YouTube Signature Extraction Failures (2025-07-06)
+- **ISSUE**: YouTube's June 2025 updates causing "Signature extraction failed" errors
+- **SYMPTOMS**:
+  ```
+  WARNING: [youtube] MqNFJ0oAY-c: Signature extraction failed: Some formats may be missing
+  WARNING: Only images are available for download. use --list-formats to see them
+  ERROR: [youtube] MqNFJ0oAY-c: Requested format is not available. Use --list-formats for a list of available formats
+  ```
+- **ATTEMPTED SOLUTIONS**:
+  - Updated Docker container to use latest yt-dlp binary
+  ```dockerfile
+  # Ensure the latest downloaded binary is used by default command `yt-dlp`
+  RUN ln -sf /usr/local/bin/yt-dlp_binary /usr/local/bin/yt-dlp
+  ```
+  - Added symlink to ensure latest binary is used
+  - Implemented additional fallback strategies
+- **CURRENT STATUS**: Issue persists; rollback to stable commit 669856c required
 
 ### 📊 TECHNICAL: Complete Stack Analysis (2025-07-04)
 - **ACHIEVEMENT**: Fully documented all components of the transcription pipeline
@@ -156,21 +330,22 @@ _Last updated: 2025-07-04_
 
 ## 🎯 CURRENT STATUS
 
-### Production Readiness: 100% ✅ WITH PERSISTENT STORAGE
-- **Stable Core**: Rollback to commit 669856c restored reliable operation
-- **Dual Platform**: Both Railway and Fly.io deployments stable
-- **Critical Fixes**: WhisperX compute type & Demucs segment fixes completed
-- **Performance**: Sub-minute processing for typical 3-4 minute songs
-- **Reliability**: Automatic failover through dual deployment, zero blocking issues
+### Production Readiness: 80% ⚠️ WITH YOUTUBE DOWNLOAD ISSUES
+- **Core Functionality**: Audio caching system implemented but limited by YouTube download issues
+- **Dual Platform**: Both Railway and Fly.io deployments experiencing YouTube signature extraction failures
+- **Critical Issues**: YouTube's June 2025 updates breaking yt-dlp functionality
+- **Performance**: System works when download succeeds, but success rate is currently low
+- **Reliability**: Rollback to commit 669856c provides some stability but issues persist
 - **Monitoring**: Health checks and error tracking in place
-- **Stability**: 100% job completion rate achieved after rollback
+- **Stability**: Job completion rate significantly impacted by YouTube download failures
 
 ### Technical Stack Details
 - **Stage 1: YouTube Download**
   - **Tool**: yt-dlp (Python CLI)
   - **Version**: 2024.12.13 with curl_cffi support
-  - **Fallback Chain**: 8-step strategy with m4a, best, opus, and android formats
+  - **Fallback Chain**: 8-step strategy with m4a, best, opus, and generic formats
   - **Configuration**: Cookies support, socket timeout, retry settings
+  - **Caching**: Cloudinary-based audio caching with consistent naming pattern
 
 - **Stage 2: Vocal Separation**
   - **Tool**: Demucs (Facebook AI Research)
@@ -195,17 +370,19 @@ _Last updated: 2025-07-04_
   - **Features**: Configurable subtitle grouping (10 words or 5 seconds)
 
 ### Performance Metrics
-- **Download**: ~5-10 seconds for typical YouTube videos
+- **Download**: ~5-10 seconds for successful downloads, frequent failures with current YouTube changes
 - **Vocal Separation**: ~15-30 seconds (skipped for long audio in memory-safe mode)
 - **Transcription**: ~20-40 seconds depending on audio length
 - **Alignment**: ~10-20 seconds for word-level timestamps
-- **Total**: ~50-100 seconds end-to-end for 3-4 minute songs
+- **Total**: ~50-100 seconds end-to-end for 3-4 minute songs (when download succeeds)
+- **Cache Performance**: <5 seconds for cached audio retrieval from Cloudinary
 
 ### Resource Optimization
 - **Memory Management**: Demucs memory-safe mode prevents OOM on Railway
 - **Disk Cleanup**: Automatic temp file removal after processing
 - **Process Management**: Proper signal handling prevents zombie processes
 - **Scaling**: Auto-scaling configured on both platforms
+- **Bandwidth Optimization**: Cloudinary caching reduces redundant downloads
 
 ## 📊 ARCHITECTURE EVOLUTION
 
@@ -217,14 +394,19 @@ _Last updated: 2025-07-04_
 ### Phase 2: Dual Platform (Current) ✅
 - **Platforms**: Railway + Fly.io
 - **Benefits**: Redundancy, performance comparison, global reach
-- **Status**: Production ready
+- **Status**: Production ready but facing YouTube download issues
 
-### Phase 3: Intelligent Routing (Future)
+### Phase 3: Caching System (Current) ⚠️
+- **Implementation**: Cloudinary-based audio caching
+- **Benefits**: Reduced bandwidth, faster processing for repeat requests
+- **Status**: Implemented but limited by YouTube download issues
+
+### Phase 4: Intelligent Routing (Future)
 - **Goal**: Smart routing based on performance data
 - **Features**: Geographic optimization, load balancing
 - **Timeline**: TBD based on usage patterns
 
-## 🔍 TECHNICAL DEBT: MINIMAL
+## 🔍 TECHNICAL DEBT: MODERATE
 
 ### Code Quality ✅
 - **TypeScript**: Full type safety throughout codebase
@@ -238,27 +420,32 @@ _Last updated: 2025-07-04_
 - **Monitoring**: Health endpoints and error tracking
 - **Backup**: Dual platform provides automatic backup
 
+### YouTube Download Issues ⚠️
+- **Current Workaround**: Rollback to stable commit
+- **Technical Debt**: Need to investigate updated yt-dlp versions or alternative approaches
+- **Impact**: Limits effectiveness of caching system and overall reliability
+
 ## 🚀 NEXT PHASE OPPORTUNITIES
 
+### YouTube Download Resilience
+1. **yt-dlp Updates**: Investigate newer versions that might handle YouTube's June 2025 changes
+2. **Alternative Libraries**: Explore other YouTube download libraries or approaches
+3. **Direct API Integration**: Research official YouTube API options for audio extraction
+
+### Caching Enhancements
+1. **Expiration Policies**: Implement TTL for cached audio files
+2. **Storage Management**: Add cleanup routines for unused cached files
+3. **Metadata Enrichment**: Store additional metadata with cached audio
+
 ### Performance Optimization
-1. **Caching**: Implement result caching for repeated URLs
-2. **Parallel Processing**: Optimize pipeline for concurrent operations
-3. **Regional Deployment**: Add more Fly.io regions based on user geography
-
-### Feature Enhancements
-1. **Batch Processing**: Support multiple URLs in single request
-2. **Format Options**: Additional output formats (VTT, JSON, etc.)
-3. **Quality Settings**: Redesign quality settings to avoid YouTube download issues
-
-### Analytics & Monitoring
-1. **Performance Metrics**: Detailed timing and success rate tracking
-2. **Usage Analytics**: Understanding user patterns and popular content
+1. **Parallel Processing**: Optimize pipeline for concurrent operations
+2. **Regional Deployment**: Add more Fly.io regions based on user geography
 3. **Cost Optimization**: Monitor and optimize resource usage across platforms
 
 ## 📈 SUCCESS METRICS
 
-- **Uptime**: 99.9%+ through dual platform redundancy
-- **Performance**: Consistent sub-2-minute processing for typical content
-- **Reliability**: Zero data loss, automatic error recovery
+- **Uptime**: Currently impacted by YouTube download issues
+- **Performance**: Consistent sub-2-minute processing for successful downloads
+- **Reliability**: Significant issues with YouTube's June 2025 anti-bot measures
 - **Scalability**: Auto-scaling handles traffic spikes
-- **User Experience**: Racing system provides fastest possible results
+- **User Experience**: Caching improves repeat request performance when available

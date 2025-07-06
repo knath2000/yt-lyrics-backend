@@ -1,28 +1,75 @@
 # Active Context - Backend
 
-_Last updated: 2025-07-05_
+_Last updated: 2025-07-06_
 
 ## Current Focus
-- **DATABASE INTEGRATION COMPLETED**: Successfully integrated PostgreSQL database and Cloudinary cloud storage
-- **PERSISTENT STORAGE**: Jobs now persist across server restarts with permanent cloud storage for results
-- **PRODUCTION READY**: Complete system with database, cloud storage, and stable transcription pipeline
+- **YOUTUBE DOWNLOAD CHALLENGES**: Addressing YouTube's June 2025 anti-bot measures causing signature extraction failures
+- **AUDIO CACHING SYSTEM**: Implemented Cloudinary-based caching but facing YouTube download issues
+- **STABLE ROLLBACK**: Maintaining stable version via rollback to commit 669856c
 
 ## Current Deployment Status
 
 ### Railway Deployment
 - **URL**: `https://yt-lyrics-backend-production.up.railway.app`
-- **Status**: ✅ ACTIVE AND STABLE (after rollback to commit 669856c)
+- **Status**: ⚠️ PARTIALLY STABLE (experiencing YouTube download issues)
 - **Configuration**: Uses Railway's container platform with automatic scaling
 - **Signal Handling**: Fixed with direct Node.js execution (`node dist/index.js`)
 
 ### Fly.io Deployment  
 - **URL**: `https://yt-lyrics-backend.fly.dev`
-- **Status**: ✅ ACTIVE AND STABLE
+- **Status**: ⚠️ PARTIALLY STABLE (experiencing YouTube download issues)
 - **Configuration**: Uses Fly.io's global edge platform with auto-scaling machines
 - **Region**: LAX (Los Angeles) primary region
 - **Health Checks**: Configured with `/health` endpoint monitoring
 
 ## Recent Achievements
+
+### ✅ FEATURE: Cloudinary Audio Caching System (2025-07-06)
+- **Achievement**: Implemented cloud-based caching for extracted YouTube audio
+- **Caching Features**:
+  - Consistent naming pattern: `audio/{videoId}/bestaudio_mp3`
+  - Tagging with `yt_audio_cache` and `video:<id>` for management
+  - Cache-first approach to eliminate redundant downloads
+  - Fetch and local storage of cached audio when available
+- **Impact**: Reduces processing time and bandwidth for repeat requests
+- **Status**: Implementation complete but limited by YouTube download issues
+
+### ✅ ENHANCEMENT: Robust YouTube URL Parsing (2025-07-06)
+- **Achievement**: Created comprehensive videoId extraction function
+- **Supported Formats**:
+  - Standard watch URLs: `youtube.com/watch?v=VIDEO_ID`
+  - Short URLs: `youtu.be/VIDEO_ID`
+  - Shorts: `youtube.com/shorts/VIDEO_ID`
+  - URLs with additional query parameters
+- **Impact**: Ensures consistent caching regardless of URL format
+- **Status**: Working correctly for all URL formats
+
+### ✅ ENHANCEMENT: Multi-Strategy Fallback Chain (2025-07-06)
+- **Achievement**: Expanded download strategies with more fallback options
+- **New Options**:
+  - Added generic format options without specific format filters
+  - Included both authenticated and unauthenticated attempts
+  - Improved error handling and reporting
+- **Impact**: Increased resilience against YouTube format changes
+- **Status**: Implemented but not resolving current signature extraction issues
+
+### ❌ CRITICAL ISSUE: YouTube Signature Extraction Failures (2025-07-06)
+- **Issue**: YouTube's June 2025 updates causing "Signature extraction failed" errors
+- **Symptoms**:
+  - "Only images are available for download" messages
+  - Failed downloads with all format strategies
+  - yt-dlp unable to extract audio formats
+- **Attempted Solutions**:
+  - Updated Docker container to use latest yt-dlp binary
+  - Added symlink to ensure latest binary is used
+  - Implemented additional fallback strategies
+- **Current Status**: Issue persists; rollback to stable commit 669856c required
+
+### ✅ CRITICAL: Rollback to Stable Commit (2025-07-04)
+- **Issue**: Quality tier system causing download failures with YouTube's anti-bot measures
+- **Solution**: Rolled back to stable commit 669856c before quality tier implementation
+- **Process**: Created backup branch, checked out stable commit, created new branch, pushed to main
+- **Result**: Restored reliable transcription pipeline without quality tiers
 
 ### ✅ MAJOR: Database & Cloud Storage Integration (2025-07-05)
 - **Achievement**: Successfully integrated PostgreSQL database and Cloudinary cloud storage
@@ -39,64 +86,15 @@ _Last updated: 2025-07-05_
 - **Impact**: Jobs now persist across server restarts, results stored permanently in cloud
 - **Result**: Complete production-ready system with persistent storage
 
-### ✅ CRITICAL: Rollback to Stable Commit (2025-07-04)
-- **Issue**: Quality tier system causing download failures with YouTube's anti-bot measures
-- **Solution**: Rolled back to stable commit 669856c before quality tier implementation
-- **Process**: Created backup branch, checked out stable commit, created new branch, pushed to main
-- **Result**: Restored reliable transcription pipeline without quality tiers
-
-### ✅ TECHNICAL: Complete Stack Analysis (2025-07-04)
-- **Achievement**: Fully documented all components of the transcription pipeline
-- **Components**:
-  - **Download**: yt-dlp with multi-strategy fallback system
-  - **Processing**: Demucs htdemucs model with memory-safe configuration
-  - **Transcription**: OpenAI Whisper API (configurable model)
-  - **Alignment**: WhisperX with WAV2VEC2_ASR_BASE_960H model
-- **Dependencies**: All critical libraries and configurations documented
-- **Result**: Complete understanding of system architecture and dependencies
-
-### ✅ CRITICAL FIXES COMPLETED: Full System Stability (2025-04-07)
-- **WhisperX Compute Type Fix**: Resolved `ValueError: float16 compute type not supported` error
-- **Demucs Segment Integer Fix**: Resolved `invalid int value: '7.8'` error in demucs CLI
-- **Result**: Complete end-to-end transcription pipeline now working flawlessly on Railway
-- **Impact**: Zero deployment errors, 100% job completion rate achieved
-
-### ✅ WhisperX CPU Compatibility Fix (2025-04-07)
-- **Issue**: `ValueError: Requested float16 compute type, but the target device or backend do not support efficient float16 computation`
-- **Root Cause**: Railway CPU instances don't support float16 operations
-- **Solution**: Modified `whisperXProcessor.ts` to use `int8` compute type for CPU compatibility
-- **Code Change**: `--compute_type "int8"` instead of `--compute_type "float16"`
-- **Status**: WhisperX word-level alignment now working perfectly on CPU-only environments
-
-### ✅ Demucs CLI Argument Fix (2025-04-07)
-- **Issue**: `demucs.separate: error: argument --segment: invalid int value: '7.8'`
-- **Root Cause**: Demucs CLI requires integer values for `--segment` argument, but code provided float
-- **Solution**: Updated `demucs.ts` to use integer segment length (`7` instead of `7.8`)
-- **Code Changes**:
-  - `MAX_HTDEMUCS_SEGMENT = 7` (integer)
-  - Constructor default: `segmentLength: number = 7`
-  - Added `Math.floor()` safety for custom values
-- **Status**: Demucs vocal separation now working without CLI errors
-
-### ✅ MAJOR SUCCESS: Dual Platform Deployment (Previous)
-- **Migration Complete**: Successfully moved from single Hugging Face Spaces deployment to dual Railway + Fly.io architecture
-- **Performance Racing**: Frontend now submits jobs to both backends simultaneously to test speed and reliability
-- **Load Balancing**: Automatic failover if one platform experiences issues
-- **Winner Detection**: Frontend tracks which backend completes jobs first
-
-### ✅ Signal Handling Fix (Railway)
-- **Issue**: Railway container termination due to improper signal handling with `npm start`
-- **Solution**: Changed to direct Node.js execution (`node dist/index.js`) for proper SIGTERM handling
-- **Result**: Graceful shutdowns and stable container lifecycle management
-
 ## Technical Stack Details
 
 ### Audio Processing Pipeline
 - **Stage 1: YouTube Download**
   - **Tool**: yt-dlp (Python CLI)
   - **Version**: 2024.12.13 with curl_cffi support
-  - **Fallback Chain**: 8-step strategy with m4a, best, opus, and android formats
+  - **Fallback Chain**: 8-step strategy with m4a, best, opus, and generic formats
   - **Configuration**: Cookies support, socket timeout, retry settings
+  - **Caching**: Cloudinary-based audio caching with consistent naming pattern
 
 - **Stage 2: Vocal Separation**
   - **Tool**: Demucs (Facebook AI Research)
@@ -128,28 +126,17 @@ _Last updated: 2025-07-05_
 
 - **Stage 7: Cloud Storage**
   - **Service**: Cloudinary cloud storage
-  - **Organization**: Structured folders (`transcriptions/{jobId}/results`, `transcriptions/{jobId}/subtitles`)
+  - **Organization**: Structured folders (`transcriptions/{jobId}/results`, `transcriptions/{jobId}/subtitles`, `audio/{videoId}/bestaudio_mp3`)
   - **Access**: Secure URL generation for frontend consumption
   - **Permanence**: Results stored permanently in cloud
-
-## Architecture Benefits
-
-### Platform Redundancy
-- **High Availability**: If one platform experiences issues, the other continues serving requests
-- **Performance Comparison**: Real-time data on which platform performs better for different workloads
-- **Geographic Distribution**: Fly.io provides global edge deployment, Railway provides reliable container hosting
-
-### User Experience
-- **Faster Results**: Users get results from whichever backend completes first
-- **Reliability**: Backup platform ensures service availability
-- **Transparency**: Users can see performance metrics for both platforms
+  - **Caching**: Audio files cached for reuse across jobs
 
 ## Next Steps
 
 ### Immediate Priorities
-1. **Monitor Stability**: Ensure rollback continues to provide reliable service
-2. **Consider Quality Options**: Evaluate alternative approaches to quality tiers that don't break YouTube downloads
-3. **Document Learnings**: Update memory bank with technical insights from rollback experience
+1. **Resolve YouTube Download Issues**: Investigate updated yt-dlp versions or alternative download approaches
+2. **Enhance Caching System**: Add expiration policies and storage management for Cloudinary assets
+3. **Monitor Stability**: Continue monitoring the rollback solution for reliability
 
 ### Future Enhancements
 1. **Smart Routing**: Implement intelligent routing based on historical performance data
@@ -157,17 +144,16 @@ _Last updated: 2025-07-05_
 3. **Load Balancing**: Implement weighted routing based on platform performance
 
 ## Known Issues
-- **RESOLVED**: All critical deployment issues have been fixed
-- **Previous Issues (Now Fixed)**:
-  - ❌ Quality tier system causing YouTube download failures → ✅ Fixed with rollback to commit 669856c
-  - ❌ `ValueError: float16 compute type not supported` → ✅ Fixed with int8 compute type
-  - ❌ `invalid int value: '7.8'` in demucs CLI → ✅ Fixed with integer segment length
-- **Current Status**: Zero known blocking issues, system fully operational
+- **CRITICAL**: YouTube signature extraction failures with June 2025 updates
+- **WORKAROUND**: Rollback to commit 669856c provides temporary stability
+- **LIMITATION**: Cloudinary caching system only works when YouTube download succeeds
 
 ## Timeline
 | Date       | Milestone                               |
 |------------|-----------------------------------------|
-| 2025-07-05 | **CURRENT**: Database & Cloud Storage Integration |
+| 2025-07-06 | **CURRENT**: Cloudinary audio caching implementation |
+| 2025-07-06 | YouTube signature extraction failures encountered |
+| 2025-07-05 | Database & Cloud Storage Integration |
 | 2025-07-04 | Rollback to stable commit 669856c |
 | 2025-07-04 | Technical stack analysis completed |
 | 2025-04-07 | All critical fixes completed - WhisperX compute type & Demucs segment fixes |

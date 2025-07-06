@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { YtDlpDownloader } from "./utils/ytDlpDownloader.js";
+import { HybridDownloader } from "./utils/hybridDownloader.js";
 import { OpenAITranscriber } from "./utils/openaiTranscriber.js";
 import { WordAligner } from "./utils/align.js";
 import { WhisperXProcessor } from "./utils/whisperXProcessor.js";
@@ -20,7 +20,7 @@ export class TranscriptionWorker {
   private wordAligner: WordAligner;
   private demucsProcessor: DemucsProcessor;
   private whisperXProcessor: WhisperXProcessor;
-  private ytDlpDownloader: YtDlpDownloader;
+  private hybridDownloader: HybridDownloader;
   private workDir: string;
   private cookieFilePath: string | null;
   private activeJobs: Set<string> = new Set(); // 🆕 Track active jobs
@@ -66,7 +66,7 @@ export class TranscriptionWorker {
     this.wordAligner = new WordAligner();
     this.demucsProcessor = new DemucsProcessor(demucsModel, finalMemorySafeMode);
     this.whisperXProcessor = new WhisperXProcessor();
-    this.ytDlpDownloader = new YtDlpDownloader(cookieFilePath || undefined);
+    this.hybridDownloader = new HybridDownloader(cookieFilePath || undefined);
     this.workDir = workDir;
     this.cookieFilePath = cookieFilePath;
 
@@ -90,7 +90,7 @@ export class TranscriptionWorker {
       onProgress?.(5, "Downloading YouTube audio...");
       
       // Step 1: Download YouTube audio
-      const downloadResult = await this.ytDlpDownloader.downloadAudio(youtubeUrl, jobDir);
+      const downloadResult = await this.hybridDownloader.downloadAudio(youtubeUrl, jobDir);
       console.log(`Downloaded: ${downloadResult.title}`);
       
       onProgress?.(20, "Processing audio...");

@@ -282,7 +282,7 @@ export class YtDlpDownloader {
   /**
    * Get video metadata without downloading
    */
-  private async getVideoMetadata(youtubeUrl: string): Promise<{ title: string; duration: number }> {
+  async getVideoMetadata(youtubeUrl: string): Promise<{ title: string; duration: number }> {
     try {
       const args = [youtubeUrl, '--print', '%(title)s|%(duration)s', '--no-playlist'];
       const output = execFileSync('yt-dlp', args, { 
