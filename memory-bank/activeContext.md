@@ -1,85 +1,56 @@
 # Active Context - Backend
 
-_Last updated: 2025-07-06_
+_Last updated: 2025-12-07_
 
 ## Current Focus
-- **ANTI-DETECTION MEASURES**: Implemented comprehensive anti-detection measures for YouTube downloads
-- **AUDIO CACHING SYSTEM**: Cloudinary-based caching system with improved YouTube download resilience
-- **ENHANCED DOWNLOAD PIPELINE**: Latest yt-dlp with browser-like headers and complete cookie integration
+- **MAJOR ROLLBACK COMPLETED**: Successfully rolled back to commit 34e90b3 to remove problematic features
+- **CODEBASE CLEANUP**: Removed Cloudinary audio caching system and download.ts utility that were causing issues
+- **STABLE FOUNDATION**: Restored to a known working state before recent problematic implementations
 
 ## Current Deployment Status
 
 ### Railway Deployment
 - **URL**: `https://yt-lyrics-backend-production.up.railway.app`
-- **Status**: ✅ ENHANCED (improved anti-detection measures deployed)
+- **Status**: 🔄 NEEDS REDEPLOYMENT (after rollback to commit 34e90b3)
 - **Configuration**: Uses Railway's container platform with automatic scaling
 - **Signal Handling**: Fixed with direct Node.js execution (`node dist/index.js`)
 
-### Fly.io Deployment  
+### Fly.io Deployment
 - **URL**: `https://yt-lyrics-backend.fly.dev`
-- **Status**: ✅ ENHANCED (improved anti-detection measures deployed)
+- **Status**: 🔄 NEEDS REDEPLOYMENT (after rollback to commit 34e90b3)
 - **Configuration**: Uses Fly.io's global edge platform with auto-scaling machines
 - **Region**: LAX (Los Angeles) primary region
 - **Health Checks**: Configured with `/health` endpoint monitoring
 
-## Recent Achievements
+## Recent Major Changes
 
-### ✅ ENHANCEMENT: Anti-Detection Measures for YouTube Downloads (2025-07-06)
-- **Achievement**: Implemented comprehensive anti-detection measures to combat YouTube's HTTP 403 errors
-- **Key Improvements**:
-  - Updated to absolute latest yt-dlp from GitHub source
-  - Added browser-like headers (User-Agent, Referer, Accept-Language)
-  - Verified complete cookie file path propagation through entire system
-  - Applied anti-detection measures to all 5 download strategies
-- **Impact**: Significantly improved success rate against YouTube's signature extraction failures
-- **Status**: Ready for deployment testing
+### ✅ CRITICAL: Major Rollback to Commit 34e90b3 (2025-12-07)
+- **Issue**: Recent implementations (Cloudinary caching, download.ts utility) were causing system instability
+- **Solution**: Performed hard reset to commit 34e90b3 to restore stable foundation
+- **Process**:
+  - `git reset --hard 34e90b3`
+  - `git clean -fd` to remove untracked files
+  - Removed problematic files: `download.ts`, `playDlDownloader.ts`, `hybridDownloader.ts`
+- **Result**: Restored to known working state before problematic implementations
+- **Impact**: System now back to stable foundation, ready for careful incremental improvements
 
-### ✅ FEATURE: Cloudinary Audio Caching System (2025-07-06)
-- **Achievement**: Implemented cloud-based caching for extracted YouTube audio
-- **Caching Features**:
-  - Consistent naming pattern: `audio/{videoId}/bestaudio_mp3`
-  - Tagging with `yt_audio_cache` and `video:<id>` for management
-  - Cache-first approach to eliminate redundant downloads
-  - Fetch and local storage of cached audio when available
-- **Impact**: Reduces processing time and bandwidth for repeat requests
-- **Status**: Implementation complete but limited by YouTube download issues
+### ❌ REMOVED: Cloudinary Audio Caching System (2025-12-07)
+- **Reason**: System was causing complications and instability
+- **Removed Features**:
+  - Cloud-based audio caching
+  - Complex videoId extraction logic
+  - Cache-first download approach
+- **Impact**: Simplified system architecture, removed potential failure points
+- **Status**: Completely removed in rollback
 
-### ✅ ENHANCEMENT: Robust YouTube URL Parsing (2025-07-06)
-- **Achievement**: Created comprehensive videoId extraction function
-- **Supported Formats**:
-  - Standard watch URLs: `youtube.com/watch?v=VIDEO_ID`
-  - Short URLs: `youtu.be/VIDEO_ID`
-  - Shorts: `youtube.com/shorts/VIDEO_ID`
-  - URLs with additional query parameters
-- **Impact**: Ensures consistent caching regardless of URL format
-- **Status**: Working correctly for all URL formats
-
-### ✅ ENHANCEMENT: Multi-Strategy Fallback Chain (2025-07-06)
-- **Achievement**: Expanded download strategies with more fallback options
-- **New Options**:
-  - Added generic format options without specific format filters
-  - Included both authenticated and unauthenticated attempts
-  - Improved error handling and reporting
-- **Impact**: Increased resilience against YouTube format changes
-- **Status**: Implemented but not resolving current signature extraction issues
-
-### ❌ CRITICAL ISSUE: YouTube Signature Extraction Failures (2025-07-06)
-- **Issue**: YouTube's June 2025 updates causing "Signature extraction failed" errors
-- **Symptoms**:
-  - "Only images are available for download" messages
-  - Failed downloads with all format strategies
-  - yt-dlp unable to extract audio formats
-- **Attempted Solutions**:
-  - Updated Docker container to use latest yt-dlp binary
-  - Added symlink to ensure latest binary is used
-  - Implemented additional fallback strategies
-- **Current Status**: Issue persists; rollback to stable commit 669856c required
-
-### ✅ CRITICAL: Rollback to Stable Commit (2025-07-04)
-- **Issue**: Quality tier system causing download failures with YouTube's anti-bot measures
-- **Solution**: Rolled back to stable commit 669856c before quality tier implementation
-- **Process**: Created backup branch, checked out stable commit, created new branch, pushed to main
-- **Result**: Restored reliable transcription pipeline without quality tiers
+### ❌ REMOVED: Complex Download Utilities (2025-12-07)
+- **Reason**: Multiple download strategies were adding complexity without solving core issues
+- **Removed Files**:
+  - `src/utils/download.ts` - Complex download orchestration
+  - `src/utils/playDlDownloader.ts` - Alternative download strategy
+  - `src/utils/hybridDownloader.ts` - Hybrid approach
+- **Impact**: Simplified to core yt-dlp functionality only
+- **Status**: Reverted to simpler, more reliable approach
 
 ### ✅ MAJOR: Database & Cloud Storage Integration (2025-07-05)
 - **Achievement**: Successfully integrated PostgreSQL database and Cloudinary cloud storage
@@ -98,14 +69,11 @@ _Last updated: 2025-07-06_
 
 ## Technical Stack Details
 
-### Audio Processing Pipeline
+### Audio Processing Pipeline (Post-Rollback)
 - **Stage 1: YouTube Download**
-  - **Tool**: yt-dlp (Python CLI)
-  - **Version**: Latest from GitHub source with anti-detection measures
-  - **Fallback Chain**: 5-step strategy with m4a, best, opus, and generic formats
-  - **Configuration**: Browser-like headers, complete cookie integration, socket timeout, retry settings
-  - **Anti-Detection**: User-Agent spoofing, Referer headers, Accept-Language headers
-  - **Caching**: Cloudinary-based audio caching with consistent naming pattern
+  - **Tool**: yt-dlp (Python CLI) via ytDlpDownloader.ts
+  - **Configuration**: Basic yt-dlp implementation without complex fallback chains
+  - **Status**: Simplified to core functionality only
 
 - **Stage 2: Vocal Separation**
   - **Tool**: Demucs (Facebook AI Research)
@@ -137,36 +105,38 @@ _Last updated: 2025-07-06_
 
 - **Stage 7: Cloud Storage**
   - **Service**: Cloudinary cloud storage
-  - **Organization**: Structured folders (`transcriptions/{jobId}/results`, `transcriptions/{jobId}/subtitles`, `audio/{videoId}/bestaudio_mp3`)
+  - **Organization**: Structured folders (`transcriptions/{jobId}/results`, `transcriptions/{jobId}/subtitles`)
   - **Access**: Secure URL generation for frontend consumption
   - **Permanence**: Results stored permanently in cloud
-  - **Caching**: Audio files cached for reuse across jobs
+  - **Status**: Audio caching removed in rollback
 
 ## Next Steps
 
 ### Immediate Priorities
-1. **Deploy Anti-Detection Measures**: Test the enhanced download pipeline in production environments
-2. **Monitor Download Success Rates**: Track improvement in YouTube download reliability
-3. **Enhance Caching System**: Add expiration policies and storage management for Cloudinary assets
+1. **Redeploy Services**: Update Railway and Fly.io deployments with rollback code
+2. **Test Core Functionality**: Verify basic transcription pipeline works after rollback
+3. **Monitor Stability**: Ensure rollback resolves previous issues
 
-### Future Enhancements
-1. **Smart Routing**: Implement intelligent routing based on historical performance data
-2. **Regional Optimization**: Deploy to additional Fly.io regions based on user geography
-3. **Load Balancing**: Implement weighted routing based on platform performance
+### Future Enhancements (Careful Incremental Approach)
+1. **Gradual Feature Re-introduction**: Carefully add back beneficial features one at a time
+2. **Improved Testing**: Implement comprehensive testing before adding new features
+3. **Monitoring Enhancement**: Add better observability to catch issues early
 
 ## Known Issues
-- **RESOLVED**: YouTube signature extraction failures addressed with anti-detection measures
-- **ENHANCED**: Latest yt-dlp with browser-like headers and complete cookie integration
-- **IMPROVED**: Cloudinary caching system now more reliable with enhanced download success rate
+- **DEPLOYMENT**: Both Railway and Fly.io need redeployment with rollback code
+- **TESTING NEEDED**: Core functionality needs verification after rollback
+- **FEATURE LOSS**: Some beneficial features removed in rollback (to be carefully re-added)
 
 ## Timeline
 | Date       | Milestone                               |
 |------------|-----------------------------------------|
-| 2025-07-06 | **CURRENT**: Anti-detection measures implementation |
-| 2025-07-06 | Cloudinary audio caching implementation |
-| 2025-07-06 | YouTube signature extraction failures addressed |
+| 2025-12-07 | **CURRENT**: Major rollback to commit 34e90b3 completed |
+| 2025-12-07 | Removed Cloudinary caching and complex download utilities |
+| 2025-12-07 | Codebase cleanup and stabilization |
+| 2025-07-06 | Cloudinary audio caching implementation (now removed) |
+| 2025-07-06 | YouTube signature extraction failures encountered |
 | 2025-07-05 | Database & Cloud Storage Integration |
-| 2025-07-04 | Rollback to stable commit 669856c |
+| 2025-07-04 | Previous rollback to stable commit 669856c |
 | 2025-07-04 | Technical stack analysis completed |
 | 2025-04-07 | All critical fixes completed - WhisperX compute type & Demucs segment fixes |
 | 2025-04-07 | Demucs segment integer fix (7.8 → 7) implemented |
