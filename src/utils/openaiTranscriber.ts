@@ -13,7 +13,7 @@ export interface TranscriptionResult {
 }
 
 /**
- * Wrapper around OpenAI Audio Transcriptions endpoint.
+ * Wrappers around OpenAI Audio Transcriptions endpoint.
  * Model is configurable via the `OPENAI_AUDIO_MODEL` env (default: gpt-4o-mini-transcribe).
  */
 export class OpenAITranscriber {
