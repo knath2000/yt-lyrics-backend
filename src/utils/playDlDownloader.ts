@@ -32,7 +32,7 @@ export class PlayDlDownloader {
 
     try {
       // Use free client ID for basic functionality
-      const clientID = getFreeClientID();
+      const clientID = await getFreeClientID();
       if (clientID) {
         setToken({
           soundcloud: {
@@ -77,7 +77,6 @@ export class PlayDlDownloader {
       // Get audio stream
       console.log('🎧 Getting audio stream...');
       const audioStream = await stream(youtubeUrl, { 
-        quality: 'highestaudio',
         discordPlayerCompatibility: false
       });
 
@@ -85,7 +84,7 @@ export class PlayDlDownloader {
         throw new Error('Could not get audio stream');
       }
 
-      console.log(`📡 Stream type: ${audioStream.type}, Quality: ${audioStream.quality || 'unknown'}`);
+      console.log(`📡 Stream type: ${audioStream.type}`);
 
       // Create write stream and download
       console.log('💾 Downloading audio...');
@@ -175,7 +174,7 @@ export class PlayDlDownloader {
     try {
       // Try to import and use a basic function
       const { getFreeClientID } = await import('play-dl');
-      const clientID = getFreeClientID();
+      const clientID = await getFreeClientID();
       
       return {
         available: true,
