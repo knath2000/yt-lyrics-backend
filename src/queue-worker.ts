@@ -33,8 +33,8 @@ class QueueWorker {
       openaiApiKey,
       pool, // database pool
       cloudinary, // cloudinary instance
-      "./temp", // work directory
-      "./cookies.txt" // cookie file path
+      "./temp" // work directory (unauthenticated download; no cookies)
+      , undefined // no cookie file path
     );
   }
 

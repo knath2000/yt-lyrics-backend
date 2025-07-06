@@ -1,5 +1,7 @@
 # Progress - Backend
 
+_Important: As of 2025-12-08 the backend is **Railway-only**. All Fly.io deployment information below is kept for historical reference only and is no longer active._
+
 _Last updated: 2025-07-06_
 
 ## ✅ COMPLETED MILESTONES

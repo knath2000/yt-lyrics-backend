@@ -15,12 +15,12 @@ _Last updated: 2025-12-07_
 - **Configuration**: Uses Railway's container platform with automatic scaling
 - **Signal Handling**: Fixed with direct Node.js execution (`node dist/index.js`)
 
-### Fly.io Deployment
-- **URL**: `https://yt-lyrics-backend.fly.dev`
-- **Status**: 🔄 NEEDS REDEPLOYMENT (after rollback to commit 34e90b3)
-- **Configuration**: Uses Fly.io's global edge platform with auto-scaling machines
-- **Region**: LAX (Los Angeles) primary region
-- **Health Checks**: Configured with `/health` endpoint monitoring
+### Deployment Platform – Railway **only**
+We have sunset the Fly.io deployment. The backend is **exclusively** hosted on Railway now.
+ - **URL**: `https://yt-lyrics-backend-production.up.railway.app`
+ - **Scaling**: Automatic container scaling via Railway settings
+ - **Health**: `/health` endpoint used for readiness & liveness probes
+ - **Notes**: Any Fly.io references are deprecated and should be ignored.
 
 ## Recent Major Changes
 

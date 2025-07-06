@@ -66,7 +66,7 @@ export class TranscriptionWorker {
     this.wordAligner = new WordAligner();
     this.demucsProcessor = new DemucsProcessor(demucsModel, finalMemorySafeMode);
     this.whisperXProcessor = new WhisperXProcessor();
-    this.hybridDownloader = new HybridDownloader(cookieFilePath || undefined);
+    this.hybridDownloader = new HybridDownloader(/* cookieFilePath disabled for unauthenticated downloads */);
     this.workDir = workDir;
     this.cookieFilePath = cookieFilePath;
 
