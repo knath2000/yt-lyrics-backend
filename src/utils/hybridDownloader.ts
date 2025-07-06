@@ -33,17 +33,35 @@ export class HybridDownloader {
     console.log('🎵 Starting hybrid download strategy...');
 
     let playDlError: Error | null = null;
+    let shouldTryPlayDl = true;
 
-    // Strategy 1: Try play-dl first
+    // Pre-validate URL with play-dl to avoid "Invalid URL" errors
     try {
-      console.log('📡 Attempting download with play-dl (primary method)...');
-      const result = await this.playDlDownloader.downloadAudio(youtubeUrl, outputDir);
-      console.log('✅ play-dl download successful!');
-      return result;
+      console.log('🔍 Validating URL with play-dl...');
+      const availability = await this.playDlDownloader.checkVideoAvailability(youtubeUrl);
+      if (!availability.available) {
+        console.log('⚠️ URL not compatible with play-dl, skipping to yt-dlp');
+        shouldTryPlayDl = false;
+        playDlError = new Error(availability.error || 'URL not compatible with play-dl');
+      }
     } catch (error) {
+      console.log('⚠️ play-dl URL validation failed, skipping to yt-dlp');
+      shouldTryPlayDl = false;
       playDlError = error as Error;
-      console.warn('⚠️ play-dl download failed:', playDlError.message);
-      console.log('🔄 Falling back to yt-dlp...');
+    }
+
+    // Strategy 1: Try play-dl first (only if URL validation passed)
+    if (shouldTryPlayDl) {
+      try {
+        console.log('📡 Attempting download with play-dl (primary method)...');
+        const result = await this.playDlDownloader.downloadAudio(youtubeUrl, outputDir);
+        console.log('✅ play-dl download successful!');
+        return result;
+      } catch (error) {
+        playDlError = error as Error;
+        console.warn('⚠️ play-dl download failed:', playDlError.message);
+        console.log('🔄 Falling back to yt-dlp...');
+      }
     }
 
     // Strategy 2: Fallback to yt-dlp with its multi-strategy approach
