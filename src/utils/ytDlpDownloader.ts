@@ -63,7 +63,10 @@ export class YtDlpDownloader {
             '--no-check-certificate',
             '--ignore-errors',
             '--socket-timeout', '30',
-            '--retries', '3'
+            '--retries', '3',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            '--referer', 'https://www.youtube.com/',
+            '--add-header', 'Accept-Language:en-US,en;q=0.9'
           ];
           if (cookies) {
             args.splice(1, 0, '--cookies', cookies);
@@ -86,7 +89,10 @@ export class YtDlpDownloader {
             '--no-check-certificate',
             '--ignore-errors',
             '--socket-timeout', '30',
-            '--retries', '3'
+            '--retries', '3',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            '--referer', 'https://www.youtube.com/',
+            '--add-header', 'Accept-Language:en-US,en;q=0.9'
           ];
         }
       },
@@ -105,7 +111,10 @@ export class YtDlpDownloader {
             '--no-check-certificate',
             '--ignore-errors',
             '--socket-timeout', '30',
-            '--retries', '3'
+            '--retries', '3',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            '--referer', 'https://www.youtube.com/',
+            '--add-header', 'Accept-Language:en-US,en;q=0.9'
           ];
           if (cookies) {
             args.splice(1, 0, '--cookies', cookies);
@@ -128,7 +137,10 @@ export class YtDlpDownloader {
             '--no-check-certificate',
             '--ignore-errors',
             '--socket-timeout', '30',
-            '--retries', '3'
+            '--retries', '3',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            '--referer', 'https://www.youtube.com/',
+            '--add-header', 'Accept-Language:en-US,en;q=0.9'
           ];
         }
       }
