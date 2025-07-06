@@ -6,19 +6,20 @@
 providers = ["node", "python"]
 # System packages required for our Python dependencies and yt-dlp
 # git is needed to install the latest yt-dlp from the repository if needed
-aptPkgs = ["ffmpeg", "git"]
+# Add build-essential tools for compiling Python packages
+aptPkgs = ["ffmpeg", "git", "gcc", "g++", "libsndfile1-dev", "libffi-dev", "libssl-dev", "libcurl4-openssl-dev", "wget"]
 
 [phases.install]
-# Install Node.js dependencies
-# Install Python dependencies from requirements.txt
-# Then, force an upgrade of yt-dlp to the absolute latest version to fix signature errors.
-# Finally, install PyTorch dependencies required for Demucs with CUDA support.
+# Install Node.js dependencies first
+# Then install PyTorch first (large foundational dependency)
+# Install other Python dependencies from requirements.txt
+# Finally, upgrade yt-dlp to the absolute latest version to fix signature errors.
 cmds = [
     "npm install", 
     "pip install --upgrade pip setuptools wheel",
+    "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu",
     "pip install -r requirements.txt", 
-    "pip install --upgrade yt-dlp",
-    "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu"
+    "pip install --upgrade yt-dlp"
 ]
 
 [phases.build]
