@@ -6,6 +6,11 @@ _Last updated: 2025-07-06_
 
 ## ✅ COMPLETED MILESTONES
 
+### 🔄 FEATURE: Simplified Download Pipeline (2025-12-08)
+- **ACHIEVEMENT**: Removed play-dl, hybrid downloader, and multi-strategy fallback chain.
+- **NEW STRATEGY**: Single unauthenticated m4a download via yt-dlp.
+- **IMPACT**: Reduced complexity, improved reliability, and eliminated cookie dependency.
+
 ### 🔄 FEATURE: Cloudinary Audio Caching System (2025-07-06)
 - **ACHIEVEMENT**: Implemented cloud-based caching for extracted YouTube audio
 - **CACHING FEATURES**:

@@ -6,6 +6,7 @@ _Last updated: 2025-12-07_
 - **MAJOR ROLLBACK COMPLETED**: Successfully rolled back to commit 34e90b3 to remove problematic features
 - **CODEBASE CLEANUP**: Removed Cloudinary audio caching system and download.ts utility that were causing issues
 - **STABLE FOUNDATION**: Restored to a known working state before recent problematic implementations
+- **SIMPLIFIED DOWNLOAD PIPELINE**: All play-dl and hybrid strategies removed; backend now uses a single yt-dlp unauthenticated m4a method (no cookies)
 
 ## Current Deployment Status
 

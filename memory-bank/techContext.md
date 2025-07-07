@@ -1,6 +1,8 @@
 # Technical Context - Backend
 
-_Last updated: 2025-04-07_
+_Last updated: 2025-12-08_
+
+> **Update 2025-12-08**: The download pipeline has been simplified. The backend now uses a single unauthenticated m4a download strategy executed by yt-dlp. All play-dl, cookie-based, and multi-strategy fallback logic described later in this document are historical and no longer active.
 
 ## Deployment Architecture
 
