@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import createJobsRouter from "./routes/jobs.js";
+import createCorrectionsRouter from "./routes/corrections.js";
 import { initializeCookieJar, setupDatabase } from "./setup.js";
 import { TranscriptionWorker } from "./worker.js";
 import QueueWorker from "./queue-worker.js";
@@ -65,6 +66,8 @@ const worker = new TranscriptionWorker(
 
 // Create and use the jobs router, injecting the worker, database pool, and cloudinary
 app.use("/api/jobs", createJobsRouter(worker, cloudinary));
+// Route for ingesting corrected transcripts
+app.use("/api/corrections", createCorrectionsRouter(pool));
 
 // Initialize queue worker
 let queueWorker: QueueWorker | null = null;

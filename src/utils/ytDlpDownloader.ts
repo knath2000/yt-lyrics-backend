@@ -47,20 +47,20 @@ export class YtDlpDownloader {
         name: "unauthenticated-m4a",
         description: "Unauthenticated, High-Compatibility Format (m4a without cookies)",
         command: (url: string, output: string) => [
-          url,
-          '-f', 'bestaudio[ext=m4a]/bestaudio',
-          '--no-playlist',
-          '-x',
-          '--audio-format', 'mp3',
-          '--audio-quality', '0',
-          '-o', `${output}.%(ext)s`,
-          '--no-check-certificate',
-          '--ignore-errors',
-          '--socket-timeout', '30',
-          '--retries', '3',
-          '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          '--referer', 'https://www.youtube.com/',
-          '--add-header', 'Accept-Language:en-US,en;q=0.9'
+            url,
+            '-f', 'bestaudio[ext=m4a]/bestaudio',
+            '--no-playlist',
+            '-x',
+            '--audio-format', 'mp3',
+            '--audio-quality', '0',
+            '-o', `${output}.%(ext)s`,
+            '--no-check-certificate',
+            '--ignore-errors',
+            '--socket-timeout', '30',
+            '--retries', '3',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            '--referer', 'https://www.youtube.com/',
+            '--add-header', 'Accept-Language:en-US,en;q=0.9'
         ]
       }
     ];

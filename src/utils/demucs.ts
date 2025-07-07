@@ -243,10 +243,10 @@ export class DemucsProcessor {
     ];
 
     for (const cmd of attempts) {
-      try {
+    try {
         await execAsync(cmd, { timeout: 5000 });
         console.log(`[Demucs] Detected via command: ${cmd}`);
-        return true;
+      return true;
       } catch (err: any) {
         console.warn(`[Demucs] Command failed: ${cmd}\nstderr/stdout: ${(err?.stderr || err?.stdout || '').toString().slice(0,300)}`);
       }
