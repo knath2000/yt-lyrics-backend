@@ -27,10 +27,7 @@ export class HybridDownloader {
    * Download audio using hybrid approach: play-dl first, then yt-dlp fallback
    */
   async downloadAudio(youtubeUrl: string, outputDir: string): Promise<DownloadResult> {
-    console.log('🎵 Starting hybrid download strategy...');
-
-    // Single strategy: yt-dlp only
-    console.log('📡 Downloading with yt-dlp (unauthenticated m4a)...');
+    console.log('🎵 Starting yt-dlp download (unauthenticated m4a)...');
     return await this.ytDlpDownloader.downloadAudio(youtubeUrl, outputDir);
   }
 

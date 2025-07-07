@@ -18,14 +18,9 @@ export interface DownloadMethod {
 /**
  * YtDlpDownloader: A resilient, multi-strategy YouTube audio downloader
  * 
- * Implements a 4-step download strategy to handle YouTube's anti-scraping measures:
- * 1. Authenticated, High-Compatibility Format (m4a with cookies)
- * 2. Unauthenticated, High-Compatibility Format (m4a without cookies)
- * 3. Authenticated, Best Available Format (any format with cookies)
- * 4. Unauthenticated, Best Available Format (any format without cookies)
- * 
- * This approach maximizes success rate against signature extraction failures
- * and other YouTube blocking mechanisms.
+ * Implements a **single** unauthenticated m4a download strategy. Cookie-based
+ * or multi-strategy fallbacks were removed to reduce complexity and avoid the
+ * overhead of creating temporary cookie files.
  */
 export class YtDlpDownloader {
   private cookieFilePath: string | null = null;
@@ -49,100 +44,24 @@ export class YtDlpDownloader {
     // Define the 4-step download strategy
     const downloadMethods: DownloadMethod[] = [
       {
-        name: "authenticated-m4a",
-        description: "Authenticated, High-Compatibility Format (m4a with cookies)",
-        command: (url: string, output: string, cookies?: string) => {
-          const args = [
-            url,
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9'
-          ];
-          if (cookies) {
-            args.splice(1, 0, '--cookies', cookies);
-          }
-          return args;
-        }
-      },
-      {
         name: "unauthenticated-m4a",
         description: "Unauthenticated, High-Compatibility Format (m4a without cookies)",
-        command: (url: string, output: string) => {
-          return [
-            url,
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9'
-          ];
-        }
-      },
-      {
-        name: "authenticated-best",
-        description: "Authenticated, Best Available Format (any format with cookies)",
-        command: (url: string, output: string, cookies?: string) => {
-          const args = [
-            url,
-            '-f', 'bestaudio/best',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9'
-          ];
-          if (cookies) {
-            args.splice(1, 0, '--cookies', cookies);
-          }
-          return args;
-        }
-      },
-      {
-        name: "unauthenticated-best",
-        description: "Unauthenticated, Best Available Format (any format without cookies)",
-        command: (url: string, output: string) => {
-          return [
-            url,
-            '-f', 'bestaudio/best',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9'
-          ];
-        }
+        command: (url: string, output: string) => [
+          url,
+          '-f', 'bestaudio[ext=m4a]/bestaudio',
+          '--no-playlist',
+          '-x',
+          '--audio-format', 'mp3',
+          '--audio-quality', '0',
+          '-o', `${output}.%(ext)s`,
+          '--no-check-certificate',
+          '--ignore-errors',
+          '--socket-timeout', '30',
+          '--retries', '3',
+          '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          '--referer', 'https://www.youtube.com/',
+          '--add-header', 'Accept-Language:en-US,en;q=0.9'
+        ]
       }
     ];
 
@@ -150,8 +69,16 @@ export class YtDlpDownloader {
     let tempCookieFile: string | null = null;
 
     try {
-      // Create temporary cookie file if cookies are available
-      if (this.cookieFilePath || process.env.YOUTUBE_COOKIES_CONTENT) {
+      // Only create a temporary cookie file if we'll actually attempt
+      // an authenticated download method (none exist in the simplified
+      // pipeline). This preserves previous behaviour for future extension
+      // but avoids unnecessary cookie-file chatter in logs.
+      // Detect if *explicit* authenticated methods are present. We purposefully look
+      // for names that *start with* the prefix `authenticated-` to avoid false
+      // positives such as the word "unauthenticated" (which naturally contains
+      // the substring "authenticated").
+      const hasAuthenticatedMethod = downloadMethods.some((m) => m.name.startsWith('authenticated-'));
+      if (hasAuthenticatedMethod && (this.cookieFilePath || process.env.YOUTUBE_COOKIES_CONTENT)) {
         tempCookieFile = await this.createTempCookieFile(outputDir);
       }
 
@@ -160,8 +87,9 @@ export class YtDlpDownloader {
         try {
           console.log(`Attempting download with method: ${method.name} (${method.description})`);
           
-          // Skip authenticated methods if no cookies available
-          if (method.name.includes('authenticated') && !tempCookieFile) {
+          // Skip authenticated methods if no cookies are available for methods that
+          // explicitly require them (names prefixed with `authenticated-`).
+          if (method.name.startsWith('authenticated-') && !tempCookieFile) {
             console.log(`Skipping ${method.name}: No cookies available`);
             continue;
           }

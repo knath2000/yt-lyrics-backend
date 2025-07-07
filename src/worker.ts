@@ -270,13 +270,11 @@ export class TranscriptionWorker {
       const uploadResult = await this.cloudinary.uploader.upload(resultsPath, {
         resource_type: "raw",
         public_id: `transcriptions/${jobId}/results`,
-        folder: "transcriptions",
       });
       
       const srtUploadResult = await this.cloudinary.uploader.upload(srtPath, {
         resource_type: "raw",
         public_id: `transcriptions/${jobId}/subtitles`,
-        folder: "transcriptions",
       });
       
       // Step 7: Update job metadata in database
