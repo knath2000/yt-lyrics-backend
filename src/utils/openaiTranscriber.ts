@@ -20,9 +20,14 @@ export class OpenAITranscriber {
   private openai: OpenAI;
   private model: string;
 
-  constructor(apiKey: string) {
+  /**
+   * @param apiKey   OpenAI API key
+   * @param modelOpt Optional model override (e.g. "gpt-4o-transcribe"). If omitted, falls back to
+   *                 OPENAI_AUDIO_MODEL env var or defaults to gpt-4o-mini-transcribe.
+   */
+  constructor(apiKey: string, modelOpt?: string) {
     this.openai = new OpenAI({ apiKey });
-    this.model = process.env.OPENAI_AUDIO_MODEL ?? "gpt-4o-mini-transcribe";
+    this.model = modelOpt ?? process.env.OPENAI_AUDIO_MODEL ?? "gpt-4o-mini-transcribe";
   }
 
   private supportsVerbose(): boolean {

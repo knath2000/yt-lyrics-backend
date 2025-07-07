@@ -66,7 +66,7 @@ class QueueWorker {
   private async processNextJob() {
     // Check database for queued jobs
     const result = await pool.query(
-      `SELECT id, youtube_url FROM jobs
+      `SELECT id, youtube_url, openai_model FROM jobs
        WHERE status = 'queued'
        ORDER BY created_at ASC
        LIMIT 1`
@@ -77,7 +77,7 @@ class QueueWorker {
       return;
     }
 
-    const { id: jobId, youtube_url: youtubeUrl } = result.rows[0];
+    const { id: jobId, youtube_url: youtubeUrl, openai_model: openaiModel } = result.rows[0];
     
     console.log(`📋 Processing job ${jobId} for URL: ${youtubeUrl}`);
 
@@ -101,7 +101,8 @@ class QueueWorker {
             statusMessage: status
           });
           console.log(`Job ${jobId}: ${pct}% - ${status}`);
-        }
+        },
+        openaiModel
       );
 
       // Job completed successfully - the worker already updated the database

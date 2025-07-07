@@ -16,7 +16,7 @@ export interface JobProcessingResult {
 }
 
 export class TranscriptionWorker {
-  private transcriber: OpenAITranscriber;
+  private openaiApiKey: string;
   private wordAligner: WordAligner;
   private demucsProcessor: DemucsProcessor;
   private whisperXProcessor: WhisperXProcessor;
@@ -62,7 +62,7 @@ export class TranscriptionWorker {
     
     this.dbPool = dbPool;
     this.cloudinary = cloudinaryInstance;
-    this.transcriber = new OpenAITranscriber(openaiApiKey);
+    this.openaiApiKey = openaiApiKey; // Save for per-job transcriber instantiation
     this.wordAligner = new WordAligner();
     // Allow overriding model via DEMUCS_MODEL env or constructor param
     const chosenDemucsModel = process.env.DEMUCS_MODEL || demucsModel;
@@ -166,7 +166,8 @@ export class TranscriptionWorker {
   async processJob(
     jobId: string,
     youtubeUrl: string,
-    onProgress?: (pct: number, status: string) => void
+    onProgress?: (pct: number, status: string) => void,
+    openaiModel?: string
   ): Promise<JobProcessingResult> {
     const jobDir = path.join(this.workDir, jobId);
 
@@ -237,8 +238,8 @@ export class TranscriptionWorker {
       
       onProgress?.(50, "Transcribing with OpenAI 4o-mini...");
       
-      // Step 3: Transcribe with Whisper
-      const transcription = await this.transcriber.transcribeAudio(audioToTranscribe);
+      // Step 3: Transcribe with Whisper (per-job model override)
+      const transcription = await new OpenAITranscriber(this.openaiApiKey, openaiModel).transcribeAudio(audioToTranscribe);
       console.log(`Transcribed text: "${transcription.text.substring(0, 50)}..."`);
       
       onProgress?.(75, "Aligning word timestamps with WhisperX...");

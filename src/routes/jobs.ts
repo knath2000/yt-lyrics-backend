@@ -27,21 +27,29 @@ export default function createJobsRouter(
 
   // POST /api/jobs
   router.post("/", async (req, res) => {
-    const bodySchema = z.object({ youtubeUrl: z.string().url() });
+    const bodySchema = z.object({
+      youtubeUrl: z.string().url(),
+      preset: z.enum(["regular", "high"]).optional()
+    });
     const parse = bodySchema.safeParse(req.body);
     if (!parse.success) {
       return res.status(400).json({ error: "Invalid YouTube URL" });
     }
 
     const id = uuidv4();
+
+    // Map preset to actual OpenAI model names
+    const preset = parse.data.preset ?? "regular";
+    const openaiModel = preset === "high" ? "gpt-4o-transcribe" : "gpt-4o-mini-transcribe";
+
     const job: Job = { id, status: "queued", pct: 0 };
     jobProgress.set(id, job);
 
     // Initialize job in database
     await pool.query(
-      `INSERT INTO jobs (id, youtube_url, status, created_at)
-       VALUES ($1, $2, $3, $4)`,
-      [id, parse.data.youtubeUrl, 'queued', new Date()]
+      `INSERT INTO jobs (id, youtube_url, status, created_at, openai_model)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, parse.data.youtubeUrl, 'queued', new Date(), openaiModel]
     );
 
     // DO NOT start processing here - let the queue worker handle it

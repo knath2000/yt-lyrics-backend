@@ -29,7 +29,8 @@ export async function setupDatabase(): Promise<void> {
         error_message TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        completed_at TIMESTAMP WITH TIME ZONE
+        completed_at TIMESTAMP WITH TIME ZONE,
+        openai_model TEXT
       );
     `);
 
@@ -41,6 +42,11 @@ export async function setupDatabase(): Promise<void> {
     // Create index on created_at for sorting
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
+    `);
+
+    // Ensure openai_model column exists (added for per-job model selection)
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS openai_model TEXT;
     `);
 
     console.log("Database setup completed successfully");
