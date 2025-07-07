@@ -6,7 +6,7 @@ _Last updated: 2025-12-07_
 - **CLOUDINARY AUDIO CACHE RESTORED & FIXED**: Re-enabled Cloudinary-based audio caching with per-video public IDs (see Recent Changes).
 - **DOWNLOAD PIPELINE**: Still single unauthenticated m4a strategy via yt-dlp, but with refined logic that avoids false "authenticated" detection.
 - **STABILITY PATCHES**: Fixed ENOENT error by guaranteeing per-job temp directory creation before cache writes.
-- **DEMUCS MODEL UPDATE**: Default Demucs model switched to `htdemucs_ft` (fine-tuned). Can be overridden with DEMUCS_MODEL env var.
+- **DEMUCS MODEL UPDATE**: Default Demucs model switched to `htdemucs_ft` (fine-tuned). Can be overridden with the DEMUCS_MODEL env var.
 - **DEPLOYMENT**: Redeployed on Railway with the above fixes; repeat requests now hit the cache and skip YouTube download.
 
 ## Current Deployment Status
