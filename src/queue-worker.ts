@@ -79,12 +79,9 @@ class QueueWorker {
 
     const { id: jobId, youtube_url: youtubeUrl, openai_model: openaiModel } = result.rows[0];
 
-    // 🆕 Map OpenAI model to corresponding Demucs model per preset rules.
-    // "regular" preset uses GPT-4o-mini with standard htdemucs, while
-    // "high" preset uses GPT-4o (full) with the fine-tuned htdemucs_ft.
-    // We intentionally keep this mapping logic concise and isolated so that
-    // the download pipeline remains entirely untouched.
-    const demucsModel = openaiModel === "gpt-4o-mini-transcribe" ? "htdemucs" : "htdemucs_ft";
+    // For current testing we use the **same** Demucs model (standard htdemucs)
+    // regardless of the chosen transcription model preset.
+    const demucsModel = "htdemucs";
     
     console.log(`📋 Processing job ${jobId} for URL: ${youtubeUrl}`);
 

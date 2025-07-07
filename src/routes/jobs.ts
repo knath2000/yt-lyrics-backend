@@ -29,7 +29,7 @@ export default function createJobsRouter(
   router.post("/", async (req, res) => {
     const bodySchema = z.object({
       youtubeUrl: z.string().url(),
-      preset: z.enum(["regular", "high"]).optional()
+      preset: z.enum(["low", "regular", "high"]).optional()
     });
     const parse = bodySchema.safeParse(req.body);
     if (!parse.success) {
@@ -40,7 +40,13 @@ export default function createJobsRouter(
 
     // Map preset to actual OpenAI model names
     const preset = parse.data.preset ?? "regular";
-    const openaiModel = preset === "high" ? "gpt-4o-transcribe" : "gpt-4o-mini-transcribe";
+    // Map presets to concrete OpenAI model IDs
+    const openaiModel =
+      preset === "high"
+        ? "gpt-4o-transcribe" // Highest-quality full GPT-4o audio model
+        : preset === "low"
+          ? "whisper-large-v3-transcribe" // Whisper large-v3 for baseline quality
+          : "gpt-4o-mini-transcribe"; // Default regular quality using GPT-4o-mini
 
     const job: Job = { id, status: "queued", pct: 0 };
     jobProgress.set(id, job);
