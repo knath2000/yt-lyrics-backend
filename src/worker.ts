@@ -64,7 +64,9 @@ export class TranscriptionWorker {
     this.cloudinary = cloudinaryInstance;
     this.transcriber = new OpenAITranscriber(openaiApiKey);
     this.wordAligner = new WordAligner();
-    this.demucsProcessor = new DemucsProcessor(demucsModel, finalMemorySafeMode);
+    // Allow overriding model via DEMUCS_MODEL env or constructor param
+    const chosenDemucsModel = process.env.DEMUCS_MODEL || demucsModel;
+    this.demucsProcessor = new DemucsProcessor(chosenDemucsModel, finalMemorySafeMode);
     this.whisperXProcessor = new WhisperXProcessor();
     this.hybridDownloader = new HybridDownloader(/* cookieFilePath disabled for unauthenticated downloads */);
     this.workDir = workDir;

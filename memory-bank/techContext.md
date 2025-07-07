@@ -52,7 +52,7 @@ graph LR
 - **Output**: WAV/MP3 audio files
 
 #### 2. Vocal Separation (Demucs)
-- **Model**: `htdemucs` (latest supported model as of Jan 2025)
+- **Model**: `htdemucs_ft` (fine-tuned `htdemucs` variant, default; override via DEMUCS_MODEL)
 - **Memory Mode**: Safe mode enabled for Railway (prevents OOM)
 - **Segment Length**: 7 seconds (integer) for CLI compatibility and memory safety
 - **CLI Requirement**: Demucs requires integer values for `--segment` argument

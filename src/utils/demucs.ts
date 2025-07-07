@@ -22,7 +22,7 @@ export class DemucsProcessor {
   private segmentLength: number;
 
   constructor(
-    defaultModel: string | null = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
+    defaultModel: string | null = process.env.DEMUCS_MODEL || "htdemucs_ft", // Default to fine-tuned model; allow env override
     memorySafeMode: boolean = true, // Enable memory-safe mode by default
     segmentLength: number = 7 // Process in 7-second chunks (htdemucs model limit, integer required)
   ) {
