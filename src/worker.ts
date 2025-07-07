@@ -167,6 +167,15 @@ export class TranscriptionWorker {
     onProgress?: (pct: number, status: string) => void
   ): Promise<JobProcessingResult> {
     const jobDir = path.join(this.workDir, jobId);
+
+    // Guarantee the per-job working directory exists before we attempt any
+    // file operations such as writing a cached MP3 from Cloudinary. Without
+    // this, tryFetchCachedAudio() would throw an ENOENT error on its first
+    // fs.writeFileSync(), which we previously (mis-)interpreted as a cache
+    // miss and fell back to a fresh YouTube download.
+    if (!fs.existsSync(jobDir)) {
+      fs.mkdirSync(jobDir, { recursive: true });
+    }
     
     // 🆕 Track active job
     this.activeJobs.add(jobId);
