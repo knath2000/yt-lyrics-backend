@@ -4,6 +4,8 @@ _Last updated: 2025-12-08_
 
 > **Update 2025-12-08**: The download pipeline has been simplified. The backend now uses a single unauthenticated m4a download strategy executed by yt-dlp. All play-dl, cookie-based, and multi-strategy fallback logic described later in this document are historical and no longer active.
 
+> **Patch 2025-12-08 (same day)**: Cloudinary audio caching layer has been **reactivated and fixed**. Worker now guarantees temp directory creation before cache writes, and downloader correctly skips cookie logic unless a method name begins with `authenticated-`.
+
 ## Deployment Architecture
 
 ### Dual Platform Strategy

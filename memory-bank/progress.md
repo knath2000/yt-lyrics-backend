@@ -6,6 +6,13 @@ _Last updated: 2025-07-06_
 
 ## ✅ COMPLETED MILESTONES
 
+### 🔄 FEATURE: Cloudinary Cache Restoration & Downloader Bug Fixes (2025-12-08)
+- **Cloudinary Cache Reactivated**: Audio caching layer re-enabled; repeat video requests fetch MP3 from Cloudinary in ~2-3 s.
+- **Worker Temp Dir Fix**: Ensures job-specific temp folder exists before writing cached MP3 (prevents ENOENT false cache misses).
+- **Downloader Cookie Logic Patch**: `ytDlpDownloader` now uses `startsWith('authenticated-')` when deciding if a method needs cookies, eliminating accidental cookie-file creation and misleading log lines.
+- **Impact**: Verified cache hits on second job run; processing time reduced and logs clean.
+- **Status**: Deployed to Railway production, monitoring shows stable behaviour.
+
 ### 🔄 FEATURE: Simplified Download Pipeline (2025-12-08)
 - **ACHIEVEMENT**: Removed play-dl, hybrid downloader, and multi-strategy fallback chain.
 - **NEW STRATEGY**: Single unauthenticated m4a download via yt-dlp.

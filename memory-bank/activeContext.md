@@ -3,10 +3,10 @@
 _Last updated: 2025-12-07_
 
 ## Current Focus
-- **MAJOR ROLLBACK COMPLETED**: Successfully rolled back to commit 34e90b3 to remove problematic features
-- **CODEBASE CLEANUP**: Removed Cloudinary audio caching system and download.ts utility that were causing issues
-- **STABLE FOUNDATION**: Restored to a known working state before recent problematic implementations
-- **SIMPLIFIED DOWNLOAD PIPELINE**: All play-dl and hybrid strategies removed; backend now uses a single yt-dlp unauthenticated m4a method (no cookies)
+- **CLOUDINARY AUDIO CACHE RESTORED & FIXED**: Re-enabled Cloudinary-based audio caching with per-video public IDs (see Recent Changes).
+- **DOWNLOAD PIPELINE**: Still single unauthenticated m4a strategy via yt-dlp, but with refined logic that avoids false "authenticated" detection.
+- **STABILITY PATCHES**: Fixed ENOENT error by guaranteeing per-job temp directory creation before cache writes.
+- **DEPLOYMENT**: Redeployed on Railway with the above fixes; repeat requests now hit the cache and skip YouTube download.
 
 ## Current Deployment Status
 
@@ -35,14 +35,14 @@ We have sunset the Fly.io deployment. The backend is **exclusively** hosted on R
 - **Result**: Restored to known working state before problematic implementations
 - **Impact**: System now back to stable foundation, ready for careful incremental improvements
 
-### ❌ REMOVED: Cloudinary Audio Caching System (2025-12-07)
-- **Reason**: System was causing complications and instability
-- **Removed Features**:
-  - Cloud-based audio caching
-  - Complex videoId extraction logic
-  - Cache-first download approach
-- **Impact**: Simplified system architecture, removed potential failure points
-- **Status**: Completely removed in rollback
+### ✅ UPDATE: Cloudinary Cache + Downloader Fixes (2025-12-08)
+- **Cloudinary Audio Cache Reactivated**: Restored the `tryFetchCachedAudio()` + `uploadAudioToCache()` flow.
+- **Bug Fix #1** – *Temp Dir Creation*: Worker now ensures each job's temp folder exists before attempting to write the cached MP3, eliminating spurious ENOENT cache-misses.
+- **Bug Fix #2** – *Cookie Logic*: `ytDlpDownloader` now only treats methods whose names **start with** `authenticated-` as cookie-dependent, preventing accidental cookie-file creation and incorrect log messages.
+- **Result**: Second run of identical URL uses cached audio, cutting total job time by ~15 s.
+
+### ℹ️ NOTE: Cloudinary Caching Removal Entry (2025-12-07)
+The earlier rollback temporarily removed the caching layer; as of 2025-12-08 the cache has been restored and improved (see update above).
 
 ### ❌ REMOVED: Complex Download Utilities (2025-12-07)
 - **Reason**: Multiple download strategies were adding complexity without solving core issues

@@ -237,11 +237,22 @@ export class DemucsProcessor {
   }
 
   async isDemucsAvailable(): Promise<boolean> {
-    try {
-      await execAsync("demucs --help", { timeout: 3000 });
-      return true;
-    } catch {
-      return false;
+    const attempts: string[] = [
+      "demucs --help",
+      "python -m demucs --help"
+    ];
+
+    for (const cmd of attempts) {
+      try {
+        await execAsync(cmd, { timeout: 5000 });
+        console.log(`[Demucs] Detected via command: ${cmd}`);
+        return true;
+      } catch (err: any) {
+        console.warn(`[Demucs] Command failed: ${cmd}\nstderr/stdout: ${(err?.stderr || err?.stdout || '').toString().slice(0,300)}`);
+      }
     }
+
+    console.warn("[Demucs] Demucs CLI not detected – vocal separation will be skipped");
+    return false;
   }
 }
