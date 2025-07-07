@@ -76,6 +76,91 @@ export class TranscriptionWorker {
     }
   }
 
+  /**
+   * Extract the canonical 11-character YouTube video ID from common URL formats.
+   */
+  private extractVideoId(youtubeUrl: string): string | null {
+    try {
+      const url = new URL(youtubeUrl);
+
+      // https://www.youtube.com/watch?v=VIDEO_ID
+      if (/(www\.)?youtube\.com/.test(url.hostname) && url.pathname === "/watch") {
+        return url.searchParams.get("v");
+      }
+
+      // https://youtu.be/VIDEO_ID
+      if (url.hostname === "youtu.be") {
+        return url.pathname.substring(1);
+      }
+
+      // https://www.youtube.com/shorts/VIDEO_ID
+      if (/(www\.)?youtube\.com/.test(url.hostname) && url.pathname.startsWith("/shorts/")) {
+        return url.pathname.substring("/shorts/".length);
+      }
+    } catch {
+      /* ignore – fall through to regex */
+    }
+
+    // Fallback regex extraction
+    const regex = /(?:youtube\.com\/(?:.*[?&]v=|v\/|embed\/)|youtu\.be\/)([^"&?\n\r\/]{11})/;
+    const match = youtubeUrl.match(regex);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * Attempt to fetch previously-extracted audio from Cloudinary.
+   * Returns local path info if successful or null if no cache hit.
+   */
+  private async tryFetchCachedAudio(videoId: string, outputDir: string): Promise<{ audioPath: string; title: string; duration: number } | null> {
+    const publicId = `audio/${videoId}/bestaudio_mp3`;
+
+    try {
+      const resource = await this.cloudinary.api.resource(publicId, {
+        resource_type: "video",
+      });
+
+      if (!resource || !resource.secure_url) return null;
+
+      // Download the cached MP3 to the working directory
+      const localPath = path.join(outputDir, `${videoId}.mp3`);
+
+      const response = await fetch(resource.secure_url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch cached audio: HTTP ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      fs.writeFileSync(localPath, Buffer.from(arrayBuffer));
+
+      return {
+        audioPath: localPath,
+        title: videoId,
+        duration: 0, // Duration unknown – not critical for pipeline
+      };
+    } catch (err: any) {
+      // Cache miss or other error – treat as no cache
+      if (err?.http_code !== 404) {
+        console.warn(`[Cache] Cache lookup error for ${videoId}:`, err.message || err);
+      }
+      return null;
+    }
+  }
+
+  /** Utility: upload freshly-downloaded audio to Cloudinary cache */
+  private async uploadAudioToCache(videoId: string, filePath: string) {
+    try {
+      await this.cloudinary.uploader.upload(filePath, {
+        resource_type: "video",
+        public_id: `audio/${videoId}/bestaudio_mp3`,
+        overwrite: true,
+        tags: ["yt_audio_cache", `video:${videoId}`],
+      });
+      console.log(`[Cache] Uploaded audio ${videoId} to Cloudinary cache.`);
+    } catch (err: any) {
+      console.warn(`[Cache] Failed to upload ${videoId} to Cloudinary:`, err.message || err);
+    }
+  }
+
   async processJob(
     jobId: string,
     youtubeUrl: string,
@@ -87,10 +172,30 @@ export class TranscriptionWorker {
     this.activeJobs.add(jobId);
 
     try {
-      onProgress?.(5, "Downloading YouTube audio...");
-      
-      // Step 1: Download YouTube audio
-      const downloadResult = await this.hybridDownloader.downloadAudio(youtubeUrl, jobDir);
+      onProgress?.(5, "Preparing audio (cache check)...");
+
+      // Attempt Cloudinary cache first
+      let downloadResult: { audioPath: string; title: string; duration: number };
+      const videoId = this.extractVideoId(youtubeUrl);
+
+      if (videoId) {
+        const cached = await this.tryFetchCachedAudio(videoId, jobDir);
+        if (cached) {
+          console.log(`[Cache] Audio cache hit for ${videoId}`);
+          onProgress?.(10, "Using cached audio from Cloudinary...");
+          downloadResult = cached;
+        } else {
+          console.log(`[Cache] No cached audio for ${videoId}, downloading from YouTube...`);
+          onProgress?.(10, "Downloading YouTube audio...");
+          downloadResult = await this.hybridDownloader.downloadAudio(youtubeUrl, jobDir);
+          // Upload to cache asynchronously (don’t await to avoid blocking)
+          this.uploadAudioToCache(videoId, downloadResult.audioPath).catch(() => {});
+        }
+      } else {
+        // Fallback – proceed with normal download if videoId extraction failed
+        onProgress?.(10, "Downloading YouTube audio...");
+        downloadResult = await this.hybridDownloader.downloadAudio(youtubeUrl, jobDir);
+      }
       console.log(`Downloaded: ${downloadResult.title}`);
       
       onProgress?.(20, "Processing audio...");
