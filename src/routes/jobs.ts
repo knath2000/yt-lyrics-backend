@@ -185,7 +185,9 @@ export default function createJobsRouter(
           job.pct = pct;
           job.statusMessage = status;
           console.log(`Job ${jobId}: ${pct}% - ${status}`);
-        }
+        },
+        undefined, // openaiModel (not used in this deprecated path)
+        undefined  // demucsModel
       );
 
       job.status = "done";

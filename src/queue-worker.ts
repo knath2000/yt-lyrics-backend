@@ -78,6 +78,13 @@ class QueueWorker {
     }
 
     const { id: jobId, youtube_url: youtubeUrl, openai_model: openaiModel } = result.rows[0];
+
+    // 🆕 Map OpenAI model to corresponding Demucs model per preset rules.
+    // "regular" preset uses GPT-4o-mini with standard htdemucs, while
+    // "high" preset uses GPT-4o (full) with the fine-tuned htdemucs_ft.
+    // We intentionally keep this mapping logic concise and isolated so that
+    // the download pipeline remains entirely untouched.
+    const demucsModel = openaiModel === "gpt-4o-mini-transcribe" ? "htdemucs" : "htdemucs_ft";
     
     console.log(`📋 Processing job ${jobId} for URL: ${youtubeUrl}`);
 
@@ -102,7 +109,8 @@ class QueueWorker {
           });
           console.log(`Job ${jobId}: ${pct}% - ${status}`);
         },
-        openaiModel
+        openaiModel,
+        demucsModel
       );
 
       // Job completed successfully - the worker already updated the database

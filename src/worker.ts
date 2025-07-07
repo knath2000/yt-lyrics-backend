@@ -167,7 +167,8 @@ export class TranscriptionWorker {
     jobId: string,
     youtubeUrl: string,
     onProgress?: (pct: number, status: string) => void,
-    openaiModel?: string
+    openaiModel?: string,
+    demucsModel?: string // 🆕 optional per-job Demucs model override
   ): Promise<JobProcessingResult> {
     const jobDir = path.join(this.workDir, jobId);
 
@@ -215,17 +216,29 @@ export class TranscriptionWorker {
       let audioToTranscribe = downloadResult.audioPath;
       
       // Step 2: Optional vocal separation with Demucs
-      const demucsAvailable = await this.demucsProcessor.isDemucsAvailable();
+      // Decide which DemucsProcessor instance to use – either the default one
+      // created in the constructor or a new per-job override when a model
+      // parameter is supplied. This leaves global memory-safe configuration
+      // unchanged. We purposefully avoid touching any download logic.
+
+      const perJobDemucsProcessor = demucsModel
+        ? new DemucsProcessor(
+            demucsModel,
+            this.demucsProcessor.isMemorySafe() // reuse global memory-safe flag
+          )
+        : this.demucsProcessor;
+
+      const demucsAvailable = await perJobDemucsProcessor.isDemucsAvailable();
       if (demucsAvailable) {
         // If in memory-safe mode and audio duration is long, skip Demucs
         // Assuming 600 seconds (10 minutes) as the threshold for "long" audio for memory-safe mode
         const DEMUCS_SKIP_THRESHOLD_SECONDS = 600;
-        if (this.demucsProcessor.isMemorySafe() && downloadResult.duration > DEMUCS_SKIP_THRESHOLD_SECONDS) {
+        if (perJobDemucsProcessor.isMemorySafe() && downloadResult.duration > DEMUCS_SKIP_THRESHOLD_SECONDS) {
           console.log(`Demucs skipped for long audio (${downloadResult.duration}s) in memory-safe mode.`);
           onProgress?.(30, "Skipping vocal separation for long audio in memory-safe mode...");
         } else {
           onProgress?.(30, "Separating vocals with Demucs...");
-          const demucsResult = await this.demucsProcessor.separateVocals(
+          const demucsResult = await perJobDemucsProcessor.separateVocals(
             downloadResult.audioPath,
             jobDir
           );
