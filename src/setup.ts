@@ -44,31 +44,44 @@ export async function setupDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
     `);
 
-    // Enable pgvector extension for embeddings support
-    await pool.query(`
-      CREATE EXTENSION IF NOT EXISTS vector;
-    `);
+    let vectorAvailable = true;
+    try {
+      // Enable pgvector extension for embeddings support (Postgres extension name: "vector")
+      await pool.query(`CREATE EXTENSION IF NOT EXISTS vector;`);
+      console.log("pgvector extension ready (vector)");
+    } catch (extErr: any) {
+      // 0A000 means the extension is not installed on the underlying Postgres instance.
+      // We log a warning and continue without embeddings support.
+      if (extErr.code === "0A000") {
+        vectorAvailable = false;
+        console.warn("⚠️  pgvector extension not available – embedding features will be disabled");
+      } else {
+        throw extErr; // unexpected error – rethrow
+      }
+    }
 
-    // Create table to store ground-truth lyric segments and their embeddings
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS corrected_segments (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        youtube_video_id TEXT NOT NULL,
-        artist TEXT,
-        track_title TEXT,
-        segment_text TEXT NOT NULL,
-        start_sec REAL,
-        end_sec REAL,
-        embed_vector VECTOR(1536), -- OpenAI text-embedding-3-small dimensionality
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
+    if (vectorAvailable) {
+      // Create table to store ground-truth lyric segments and their embeddings
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS corrected_segments (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          youtube_video_id TEXT NOT NULL,
+          artist TEXT,
+          track_title TEXT,
+          segment_text TEXT NOT NULL,
+          start_sec REAL,
+          end_sec REAL,
+          embed_vector VECTOR(1536), -- OpenAI text-embedding-3-small dimensionality
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
 
-    // Vector index for fast ANN search (requires pgvector ≥0.5 and ANALYZE afterwards)
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_corrected_segments_embedding
-      ON corrected_segments USING ivfflat (embed_vector vector_cosine_ops);
-    `);
+      // Vector index for fast ANN search (requires pgvector ≥0.5 and ANALYZE afterwards)
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_corrected_segments_embedding
+        ON corrected_segments USING ivfflat (embed_vector vector_cosine_ops);
+      `);
+    }
 
     // Ensure openai_model column exists (added for per-job model selection)
     await pool.query(`
