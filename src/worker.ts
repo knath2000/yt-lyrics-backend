@@ -33,7 +33,7 @@ export class TranscriptionWorker {
     cloudinaryInstance: typeof cloudinary,
     workDir = "./temp",
     cookieFilePath: string | null = null,
-    demucsModel: string = "htdemucs", // Current supported model (demucs deprecated Jan 2025)
+    demucsModel: string = process.env.DEMUCS_MODEL || "htdemucs_ft", // Default to fine-tuned model unless overridden
     demucsMemorySafeMode?: boolean // Optional override for memory-safe mode
   ) {
     // Determine memory-safe mode: respect env var or explicit param, otherwise optimize for production

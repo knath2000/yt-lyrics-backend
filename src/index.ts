@@ -59,7 +59,7 @@ const worker = new TranscriptionWorker(
   cloudinary,
   "./temp",
   cookieFilePath,
-  "htdemucs", // Use htdemucs model
+  process.env.DEMUCS_MODEL || "htdemucs_ft", // Use fine-tuned model by default; override via env
   !isProduction // Disable memory-safe mode in production (false = performance mode)
 );
 
