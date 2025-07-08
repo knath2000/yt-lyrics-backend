@@ -1,6 +1,7 @@
 import { TranscriptionWorker } from "./worker.js";
 import { cloudinary } from "./cloudinary.js";
 import { pool } from "./db.js";
+import { RunPodClient } from "./utils/runpodClient.js";
 import { fileURLToPath } from "url";
 
 interface Job {
@@ -17,6 +18,7 @@ const jobProgress = new Map<string, Job>();
 
 class QueueWorker {
   private worker: TranscriptionWorker;
+  private runpodClient: RunPodClient | null = null;
   private isRunning = false;
   private pollInterval = 5000; // 5 seconds
 
@@ -27,6 +29,12 @@ class QueueWorker {
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {
       throw new Error("OPENAI_API_KEY environment variable is required");
+    }
+
+    // If RUNPOD config present, initialize client
+    if (process.env.RUNPOD_API_KEY && process.env.RUNPOD_ENDPOINT_ID) {
+      this.runpodClient = new RunPodClient(process.env.RUNPOD_API_KEY, process.env.RUNPOD_ENDPOINT_ID);
+      console.log("RunPod integration enabled – jobs will be offloaded to Serverless endpoint");
     }
 
     this.worker = new TranscriptionWorker(
@@ -92,23 +100,32 @@ class QueueWorker {
     );
 
     try {
-      // Process the job using the existing worker
-      const result = await this.worker.processJob(
-        jobId,
-        youtubeUrl,
-        (pct: number, status: string) => {
-          // Update in-memory progress for real-time API access
-          jobProgress.set(jobId, {
-            id: jobId,
-            status: "processing",
-            pct,
-            statusMessage: status
-          });
-          console.log(`Job ${jobId}: ${pct}% - ${status}`);
-        },
-        openaiModel,
-        demucsModel
-      );
+      let result;
+      if (this.runpodClient) {
+        // Offload to RunPod
+        result = await this.runpodClient.runTranscription(youtubeUrl, (pct, status) => {
+          jobProgress.set(jobId, { id: jobId, status: "processing", pct, statusMessage: status });
+        });
+        // After receiving, upload any needed artifacts or pass resultUrl directly
+      } else {
+        // Local processing
+        result = await this.worker.processJob(
+          jobId,
+          youtubeUrl,
+          (pct: number, status: string) => {
+            // Update in-memory progress for real-time API access
+            jobProgress.set(jobId, {
+              id: jobId,
+              status: "processing",
+              pct,
+              statusMessage: status
+            });
+            console.log(`Job ${jobId}: ${pct}% - ${status}`);
+          },
+          openaiModel,
+          demucsModel
+        );
+      }
 
       // Job completed successfully - the worker already updated the database
       // Just update our in-memory tracking and log success
