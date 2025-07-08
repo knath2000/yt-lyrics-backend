@@ -52,31 +52,6 @@ export class YtDlpDownloader {
 
     const downloadMethods: DownloadMethod[] = [
       {
-        name: "authenticated-m4a",
-        description: "Authenticated, m4a Format (requires cookies)",
-        command: (url: string, output: string, cookiePath?: string) => {
-          if (!cookiePath) throw new Error('No cookie file supplied for authenticated method');
-          return [
-            url,
-            '--cookies', cookiePath,
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9',
-            '--extractor-args', 'youtube:player_client=ios'
-          ];
-        }
-      },
-      {
         name: "unauthenticated-m4a",
         description: "Unauthenticated, m4a Format (no cookies)",
         command: (url: string, output: string) => [
@@ -96,31 +71,6 @@ export class YtDlpDownloader {
             '--add-header', 'Accept-Language:en-US,en;q=0.9',
             '--extractor-args', 'youtube:player_client=ios'
         ]
-      },
-      {
-        name: "authenticated-generic",
-        description: "Authenticated, Generic Format (any best format with cookies)",
-        command: (url: string, output: string, cookiePath?: string) => {
-          if (!cookiePath) throw new Error('No cookie file supplied for authenticated method');
-          return [
-            url,
-            '--cookies', cookiePath,
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9',
-            '--extractor-args', 'youtube:player_client=ios'
-          ];
-        }
       },
       {
         name: "unauthenticated-generic",
