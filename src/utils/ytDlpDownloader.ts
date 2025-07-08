@@ -56,10 +56,49 @@ export class YtDlpDownloader {
     // when the others are blocked.
     const playerClients = ["tv", "ios", "web"] as const;
 
-    const downloadMethods: DownloadMethod[] = playerClients.map<DownloadMethod>((client) => ({
+    // 1️⃣  AUTHENTICATED METHODS (run first if cookies are provided)
+    // These are attempted before unauthenticated methods. They rely on a valid
+    // cookie jar copied into the temp directory. Each method is identical to its
+    // unauthenticated counterpart but injects the `--cookies <file>` flag **iff**
+    // a cookie path is provided at runtime.
+
+    const authenticatedMethods: DownloadMethod[] = playerClients.map<DownloadMethod>((client) => ({
+      name: `authenticated-${client}`,
+      description: `Authenticated download using explicit ${client} player client`,
+      command: (url: string, output: string, cookiePath?: string) => {
+        const baseArgs: string[] = [
+          url,
+          '-f', 'bestaudio[ext=m4a]/bestaudio',
+          '--no-playlist',
+          '-x',
+          '--audio-format', 'mp3',
+          '--audio-quality', '0',
+          '-o', `${output}.%(ext)s`,
+          '--no-check-certificate',
+          '--ignore-errors',
+          '--socket-timeout', '30',
+          '--retries', '3',
+          '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          '--referer', 'https://www.youtube.com/',
+          '--add-header', 'Accept-Language:en-US,en;q=0.9',
+          '--impersonate', 'chrome',
+          '--force-ipv4',
+          '--extractor-args', `youtube:player_client=${client}`
+        ];
+
+        // Inject cookies if available (they *should* be for authenticated- methods)
+        if (cookiePath) {
+          baseArgs.splice(1, 0, '--cookies', cookiePath);
+        }
+
+        return baseArgs;
+      }
+    }));
+
+    const unauthenticatedMethods: DownloadMethod[] = playerClients.map<DownloadMethod>((client) => ({
       name: `unauth-${client}`,
       description: `Unauthenticated download using explicit ${client} player client`,
-      command: (url: string, output: string) => [
+      command: (url: string, output: string, _cookiePath?: string) => [
         url,
         '-f', 'bestaudio[ext=m4a]/bestaudio',
         '--no-playlist',
@@ -79,6 +118,12 @@ export class YtDlpDownloader {
         '--extractor-args', `youtube:player_client=${client}`
       ]
     }));
+
+    // Merge authenticated and unauthenticated strategies. Authenticated ones run first.
+    const downloadMethods: DownloadMethod[] = [
+      ...authenticatedMethods,
+      ...unauthenticatedMethods,
+    ];
 
     let lastError: Error | null = null;
     let tempCookieFile: string | null = null;
