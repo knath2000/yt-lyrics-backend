@@ -50,52 +50,35 @@ export class YtDlpDownloader {
     // NOTE: Additional strategies can be appended but MUST use the
     //       `authenticated-` prefix if they explicitly require cookies.
 
-    const downloadMethods: DownloadMethod[] = [
-      {
-        name: "unauthenticated-m4a",
-        description: "Unauthenticated, m4a Format (no cookies)",
-        command: (url: string, output: string) => [
-            url,
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9',
-            '--impersonate', 'chrome',
-            '--force-ipv4'
-        ]
-      },
-      {
-        name: "unauthenticated-generic",
-        description: "Unauthenticated, Generic Format (any best format)",
-        command: (url: string, output: string) => [
-            url,
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '--no-playlist',
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', `${output}.%(ext)s`,
-            '--no-check-certificate',
-            '--ignore-errors',
-            '--socket-timeout', '30',
-            '--retries', '3',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--referer', 'https://www.youtube.com/',
-            '--add-header', 'Accept-Language:en-US,en;q=0.9',
-            '--impersonate', 'chrome',
-            '--force-ipv4'
-        ]
-      }
-    ];
+    // Explicitly test each of yt-dlp’s three default unauthenticated player clients
+    // (`tv`, `ios`, and `web`) one-by-one. This prevents yt-dlp from short-circuiting
+    // after the first client and lets us discover if one of the alternates succeeds
+    // when the others are blocked.
+    const playerClients = ["tv", "ios", "web"] as const;
+
+    const downloadMethods: DownloadMethod[] = playerClients.map<DownloadMethod>((client) => ({
+      name: `unauth-${client}`,
+      description: `Unauthenticated download using explicit ${client} player client`,
+      command: (url: string, output: string) => [
+        url,
+        '-f', 'bestaudio[ext=m4a]/bestaudio',
+        '--no-playlist',
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '0',
+        '-o', `${output}.%(ext)s`,
+        '--no-check-certificate',
+        '--ignore-errors',
+        '--socket-timeout', '30',
+        '--retries', '3',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '--referer', 'https://www.youtube.com/',
+        '--add-header', 'Accept-Language:en-US,en;q=0.9',
+        '--impersonate', 'chrome',
+        '--force-ipv4',
+        '--extractor-args', `youtube:player_client=${client}`
+      ]
+    }));
 
     let lastError: Error | null = null;
     let tempCookieFile: string | null = null;
