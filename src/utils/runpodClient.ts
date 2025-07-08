@@ -17,7 +17,7 @@ export class RunPodClient {
   }
 
   /**
-   * Submit a new RunPod job. Returns requestId.
+   * Submit a neww RunPod job. Returns requestId.
    */
   private async submitJob(input: any): Promise<string> {
     const resp = await fetch(`https://api.runpod.ai/v2/${this.endpointId}/run`, {
