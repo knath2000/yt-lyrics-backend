@@ -32,7 +32,7 @@ export class RunPodClient {
       const text = await resp.text();
       throw new Error(`RunPod submit failed: HTTP ${resp.status} – ${text}`);
     }
-    const data = await resp.json();
+    const data: any = await resp.json();
     if (!data?.id) throw new Error("RunPod submit: missing request id");
     return data.id;
   }
@@ -48,7 +48,7 @@ export class RunPodClient {
         const text = await resp.text();
         throw new Error(`RunPod status failed: HTTP ${resp.status} – ${text}`);
       }
-      const data = await resp.json();
+      const data: any = await resp.json();
       if (data.status === "COMPLETED") return data.output;
       if (data.status === "FAILED") throw new Error(data.error || "RunPod job failed");
       if (data.status === "IN_PROGRESS" || data.status === "PROCESSING") {
