@@ -5,10 +5,14 @@ import path from "path";
 export function initializeCookieJar(): string {
   const cookieFilePath = path.join(process.cwd(), "cookies.txt");
   
-  // Create empty cookies.txt if it doesn't exist
-  if (!fs.existsSync(cookieFilePath)) {
+  // If YOUTUBE_COOKIES_CONTENT env var is provided, (re)write cookies.txt with its
+  // contents. Otherwise, ensure the file exists (create empty placeholder if not).
+  if (process.env.YOUTUBE_COOKIES_CONTENT) {
+    fs.writeFileSync(cookieFilePath, process.env.YOUTUBE_COOKIES_CONTENT);
+    console.log("Populated cookies.txt from YOUTUBE_COOKIES_CONTENT secret");
+  } else if (!fs.existsSync(cookieFilePath)) {
     fs.writeFileSync(cookieFilePath, "");
-    console.log("Created empty cookies.txt file");
+    console.log("Created empty cookies.txt file (no env secret provided)");
   }
   
   return cookieFilePath;

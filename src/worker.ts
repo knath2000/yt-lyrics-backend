@@ -68,7 +68,10 @@ export class TranscriptionWorker {
     const chosenDemucsModel = process.env.DEMUCS_MODEL || demucsModel;
     this.demucsProcessor = new DemucsProcessor(chosenDemucsModel, finalMemorySafeMode);
     this.whisperXProcessor = new WhisperXProcessor();
-    this.hybridDownloader = new HybridDownloader(/* cookieFilePath disabled for unauthenticated downloads */);
+    // Pass the cookie file path so that authenticated yt-dlp strategies can utilize
+    // real browser cookies when available. This dramatically increases the success
+    // rate against YouTube’s bot-detection flow.
+    this.hybridDownloader = new HybridDownloader(cookieFilePath ?? undefined);
     this.workDir = workDir;
     this.cookieFilePath = cookieFilePath;
 

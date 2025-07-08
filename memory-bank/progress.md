@@ -2,7 +2,55 @@
 
 _Important: As of 2025-12-08 the backend is **Railway-only**. All Fly.io deployment information below is kept for historical reference only and is no longer active._
 
-_Last updated: 2025-07-06_
+_Last updated: 2025-01-15_
+
+## ❌ CRITICAL SESSION WORK (2025-01-15)
+
+### 🔴 MAJOR ISSUE: YouTube Bot Detection Blocking All Downloads
+- **PROBLEM**: Complete service failure - all download strategies blocked by YouTube
+- **ERROR PATTERN**: "Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies for the authentication"
+- **SCOPE**: Affects all quality presets (low, regular, high) and all download methods
+- **USER IMPACT**: Service completely non-functional
+- **STATUS**: Session paused pending cookie authentication implementation
+
+### ⚠️ ATTEMPTED FIX: Multi-Strategy yt-dlp Restoration
+- **ACTION**: Restored previous four-step fallback chain in `ytDlpDownloader.ts`
+- **STRATEGIES RESTORED**:
+  ```typescript
+  // Restored strategies:
+  1. "authenticated-m4a" (requires cookies)
+  2. "unauthenticated-m4a" (no cookies)  
+  3. "authenticated-generic" (requires cookies)
+  4. "unauthenticated-generic" (no cookies)
+  ```
+- **IMPLEMENTATION**: Full multi-strategy approach with browser-like headers
+- **RESULT**: ❌ All strategies failed with same YouTube bot detection error
+- **ISSUE**: Even unauthenticated methods being blocked by YouTube
+
+### 📋 Detailed Error Analysis
+- **Failing Command**: 
+  ```bash
+  yt-dlp https://youtu.be/MGVvaHEY27Y -f best --no-playlist -x --audio-format mp3 --audio-quality 0 -o temp/973e7e5c-32bf-4480-a041-44f56185a5a2/video_1731984244610.%(ext)s --no-check-certificate --ignore-errors --socket-timeout 30 --retries 3 --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 --referer https://www.youtube.com/ --add-header Accept-Language:en-US,en;q=0.9
+  ```
+- **YouTube Response**: "Sign in to confirm you're not a bot"
+- **Impact**: Complete transcription pipeline failure at Stage 1
+- **Urgency**: Critical - requires immediate attention in next session
+
+### 🎯 NEXT SESSION PRIORITIES
+1. **Cookie Authentication Implementation**:
+   - Research and implement `--cookies-from-browser` option
+   - Set up automatic cookie extraction from Chrome/Firefox
+   - Test authenticated downloads with real browser cookies
+
+2. **Bot Evasion Research**:
+   - Update yt-dlp to latest version
+   - Research newer user agent strings
+   - Investigate proxy/VPN integration options
+
+3. **Alternative Approaches**:
+   - Research alternative YouTube download libraries
+   - Consider YouTube Data API v3 integration
+   - Evaluate other bot evasion techniques
 
 ## ✅ COMPLETED MILESTONES
 
