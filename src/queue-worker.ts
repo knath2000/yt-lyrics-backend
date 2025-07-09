@@ -194,6 +194,12 @@ class QueueWorker {
 
         resultUrl = result.resultUrl;
         console.log(`✅ Job ${jobId} completed via local worker with result URL: ${resultUrl}`);
+
+        // Persist completion to database
+        await pool.query(
+          'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
+          ['completed', resultUrl, new Date(), jobId]
+        );
       }
 
       // Update in-memory tracking for immediate API access
