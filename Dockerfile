@@ -65,7 +65,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 # Create app user
 RUN useradd --create-home --shell /bin/bash app
-USER app
+# Work in the app user's home directory (still as root for install steps)
 WORKDIR /home/app
 ENV PATH="/home/app/.local/bin:${PATH}"
 
@@ -76,8 +76,12 @@ COPY --from=python-builder /usr/local/bin/yt-dlp_binary /usr/local/bin/yt-dlp_bi
 
 # Copy Node.js application (only production dependencies)
 COPY --from=node-builder /app/package*.json ./
-# Install production dependencies only
-RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force
+# Install production dependencies only (as root to avoid EACCES) and then fix permissions
+RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force && \
+    chown -R app:app /home/app
+
+# Switch to non-root user for runtime
+USER app
 
 # Copy the built JavaScript files
 COPY --from=node-builder /app/dist ./dist
