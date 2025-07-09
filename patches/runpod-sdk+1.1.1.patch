@@ -11,15 +11,3 @@ index e886f24..b7a80f1 100644
  var axios = xior.create();
  function getUserAgent() {
      var sdkVersion = pkg.version;
-
-diff --git a/node_modules/runpod-sdk/dist/index.js b/node_modules/runpod-sdk/dist/index.js
-index e886f24..b7a80f2 100644
---- a/node_modules/runpod-sdk/dist/index.js
-+++ b/node_modules/runpod-sdk/dist/index.js
-@@
- import xior from "xior";
- import { curry, clamp, isNil } from "ramda";
- import pkg from "./package.json" assert { type: "json" };
- var axios = xior.create();
- function getUserAgent() {
-     var sdkVersion = pkg.version;
