@@ -1,5 +1,5 @@
 import "dotenv/config";
-import runpod from "runpod";
+import runpod from "@runpod/ai";
 import { v4 as uuidv4 } from "uuid";
 import { TranscriptionWorker } from "./worker.js";
 import { cloudinary } from "./cloudinary.js";

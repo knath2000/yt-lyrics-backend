@@ -20,7 +20,7 @@
     "uuid": "^9.0.1",
     "zod": "^3.22.4",
     "node-fetch": "^3.3.2",
-    "runpod": "^1.0.7"
+    "@runpod/ai": "^0.0.8"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
