@@ -7,9 +7,10 @@
     "outDir": "dist",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
-  "exclude": []
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/services/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

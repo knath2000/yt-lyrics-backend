@@ -42,9 +42,8 @@ COPY package*.json ./
 # Install ALL dependencies (including dev dependencies for TypeScript build)
 RUN npm install --legacy-peer-deps
 
-# Copy source code
-COPY src/ ./src/
-COPY tsconfig.json ./
+# Copy all source files
+COPY . .
 
 # Build TypeScript
 RUN npm run build
