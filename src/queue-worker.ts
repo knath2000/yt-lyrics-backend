@@ -44,6 +44,17 @@ class QueueWorker {
       "./temp" // work directory (unauthenticated download; no cookies)
       , undefined // no cookie file path
     );
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const url = new URL(process.env.DATABASE_URL);
+        console.log(`🔗 QueueWorker connected to DB host=${url.host} db=${url.pathname}`);
+      } catch (_) {
+        console.log(`🔗 QueueWorker DATABASE_URL=${process.env.DATABASE_URL}`);
+      }
+    } else {
+      console.warn('⚠️ No DATABASE_URL env var found in QueueWorker');
+    }
   }
 
   /**

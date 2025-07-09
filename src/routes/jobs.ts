@@ -25,6 +25,16 @@ export default function createJobsRouter(
 ): Router {
   const router = Router();
 
+  // Log DB connection details once
+  if (process.env.DATABASE_URL) {
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      console.log(`🔗 JobsRouter connected to DB host=${url.host} db=${url.pathname}`);
+    } catch (_) {
+      console.log(`🔗 JobsRouter DATABASE_URL=${process.env.DATABASE_URL}`);
+    }
+  }
+
   // POST /api/jobs
   router.post("/", async (req, res) => {
     const bodySchema = z.object({
@@ -59,6 +69,14 @@ export default function createJobsRouter(
     );
 
     console.log(`🔖 Inserted job ${id} for URL ${parse.data.youtubeUrl}`);
+
+    // Debug: count queued rows immediately after insert
+    try {
+      const { rows: countRows } = await pool.query("SELECT count(*) FROM jobs WHERE status = 'queued'");
+      console.log(`📊 Queued rows in DB now: ${countRows[0].count}`);
+    } catch (countErr) {
+      console.error('Count query failed:', countErr);
+    }
 
     // DO NOT start processing here - let the queue worker handle it
     // processJobAsync(id, parse.data.youtubeUrl, worker); // REMOVED - causes SIGTERM
