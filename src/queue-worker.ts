@@ -1,7 +1,7 @@
 import { TranscriptionWorker } from "./worker.js";
 import { cloudinary } from "./cloudinary.js";
 import { pool } from "./db.js";
-import { RunPodClient, RunPodUnhealthyError } from "./utils/runpodClient.js";
+import { ModalClient, ModalUnhealthyError } from "./utils/modalClient.js";
 import { logger } from "./utils/logger.js";
 import { fileURLToPath } from "url";
 import { safeDbQuery } from "./db.js";
@@ -20,7 +20,7 @@ const jobProgress = new Map<string, Job>();
 
 class QueueWorker {
   private worker: TranscriptionWorker;
-  private runpodClient: RunPodClient | null = null;
+  private modalClient: ModalClient | null = null;
   private isRunning = false;
   private pollInterval = 5000; // 5 seconds
 
@@ -33,10 +33,10 @@ class QueueWorker {
       throw new Error("OPENAI_API_KEY environment variable is required");
     }
 
-    // If RUNPOD config present, initialize client
-    if (process.env.RUNPOD_API_KEY && process.env.RUNPOD_ENDPOINT_ID) {
-      this.runpodClient = new RunPodClient(process.env.RUNPOD_API_KEY, process.env.RUNPOD_ENDPOINT_ID);
-      console.log("RunPod integration enabled – jobs will be offloaded to Serverless endpoint");
+    // If Modal credentials present, initialize client
+    if (process.env.MODAL_TOKEN_ID && process.env.MODAL_TOKEN_SECRET) {
+      this.modalClient = new ModalClient(process.env.MODAL_TOKEN_ID, process.env.MODAL_TOKEN_SECRET);
+      console.log("Modal integration enabled – jobs will be offloaded to serverless GPU function");
     }
 
     this.worker = new TranscriptionWorker(
@@ -168,21 +168,21 @@ class QueueWorker {
       let result;
       let resultUrl: string;
 
-      if (this.runpodClient) {
-        // Offload to RunPod
-        console.log(`🚀 Submitting job ${jobId} to RunPod endpoint`);
-        result = await this.runpodClient.runTranscription(youtubeUrl, (pct, status) => {
+      if (this.modalClient) {
+        // Offload to Modal
+        console.log(`🚀 Submitting job ${jobId} to Modal function`);
+        result = await this.modalClient.runTranscription(youtubeUrl, (pct, status) => {
           jobProgress.set(jobId, { id: jobId, status: "processing", pct, statusMessage: status });
         });
 
-        console.log(`✅ RunPod job ${jobId} completed, uploading results to Cloudinary...`);
+        console.log(`✅ Modal transcription job ${jobId} completed, uploading results to Cloudinary...`);
 
-        // Check if RunPod already provided a resultUrl (if it uploaded to Cloudinary itself)
+        // Check if Modal already provided a resultUrl (if it uploaded to Cloudinary itself)
         if (result.resultUrl) {
           resultUrl = result.resultUrl;
-          console.log(`📄 Using RunPod-provided result URL: ${resultUrl}`);
+          console.log(`📄 Using Modal-provided result URL: ${resultUrl}`);
         } else {
-          // Upload RunPod results to Cloudinary ourselves
+          // Upload Modal results to Cloudinary ourselves
           resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, result);
         }
 
@@ -192,7 +192,7 @@ class QueueWorker {
           ['completed', resultUrl, new Date(), jobId]
         );
 
-        console.log(`✅ Job ${jobId} completed via RunPod with result URL: ${resultUrl}`);
+        console.log(`✅ Job ${jobId} completed via Modal with result URL: ${resultUrl}`);
 
       } else {
         // Local processing
@@ -239,12 +239,11 @@ class QueueWorker {
       
     } catch (error) {
       // If the error is a RunPodUnhealthyError, attempt cancellation & queue purge
-      if (error instanceof RunPodUnhealthyError && this.runpodClient) {
+      if (error instanceof ModalUnhealthyError && this.modalClient) {
         try {
-          await this.runpodClient.cancelJob(error.requestId);
-          await this.runpodClient.purgeQueue();
+          await this.modalClient.cancelJob(error.requestId);
         } catch (cleanupErr) {
-          logger.runpodError(`Post-failure cleanup failed: ${(cleanupErr as Error).message}`);
+          logger.error(`Post-failure modal cleanup failed: ${(cleanupErr as Error).message}`);
         }
       }
 
@@ -253,9 +252,9 @@ class QueueWorker {
         'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
         ['error', (error as Error).message, new Date(), jobId]
       );
-
+      
       logger.error(`Job ${jobId} failed: ${(error as Error).message}`);
-
+      
       // Remove from in-memory store to prevent stale entries
       jobProgress.delete(jobId);
     }

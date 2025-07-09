@@ -40,7 +40,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install ALL dependencies (including dev dependencies for TypeScript build)
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY src/ ./src/
@@ -77,7 +77,8 @@ COPY --from=python-builder /usr/local/bin/yt-dlp_binary /usr/local/bin/yt-dlp_bi
 
 # Copy Node.js application (only production dependencies)
 COPY --from=node-builder /app/package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+# Install production dependencies only
+RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force
 
 # Copy the built JavaScript files
 COPY --from=node-builder /app/dist ./dist
