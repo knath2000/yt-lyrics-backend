@@ -1,5 +1,6 @@
 import "dotenv/config";
-import runpod from "@runpod/ai";
+// @ts-ignore – runpod-sdk has no types published yet
+import runpod from "runpod-sdk";
 import { v4 as uuidv4 } from "uuid";
 import { TranscriptionWorker } from "./worker.js";
 import { cloudinary } from "./cloudinary.js";
