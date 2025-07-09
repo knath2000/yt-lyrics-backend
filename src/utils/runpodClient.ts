@@ -1,4 +1,15 @@
 import fetch from "node-fetch";
+import { logger } from "./logger.js";
+
+/** Custom error thrown when RunPod marks a job or worker as unhealthy. */
+export class RunPodUnhealthyError extends Error {
+  requestId: string;
+  constructor(requestId: string, message: string) {
+    super(message);
+    this.name = "RunPodUnhealthyError";
+    this.requestId = requestId;
+  }
+}
 
 export interface RunPodJobResult {
   words: any[];
@@ -73,8 +84,14 @@ export class RunPodClient {
       
       if (data.status === "FAILED") {
         const errorMsg = data.error || "RunPod job failed without specific error message";
-        console.error(`❌ RunPod job ${requestId} failed: ${errorMsg}`);
+        logger.runpodError(`Job ${requestId} failed: ${errorMsg}`);
         throw new Error(errorMsg);
+      }
+
+      // Treat UNHEALTHY status as fatal so that upstream logic can cancel + purge.
+      if (data.status === "UNHEALTHY") {
+        logger.runpodError(`Job ${requestId} reported UNHEALTHY status`);
+        throw new RunPodUnhealthyError(requestId, "RunPod worker became unhealthy");
       }
       
       if (data.status === "IN_PROGRESS" || data.status === "PROCESSING") {
@@ -140,5 +157,41 @@ export class RunPodClient {
       console.error(`❌ RunPod transcription failed:`, error);
       throw error;
     }
+  }
+
+  /** Cancel a specific RunPod job and optionally terminate the worker. */
+  async cancelJob(requestId: string): Promise<void> {
+    logger.info(`Requesting cancellation of RunPod job ${requestId}`);
+    const resp = await fetch(`https://api.runpod.ai/v2/${this.endpointId}/cancel/${requestId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.apiKey}`
+      },
+      body: JSON.stringify({ auto_terminate: true })
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      logger.runpodError(`Failed to cancel job ${requestId}: HTTP ${resp.status} – ${text}`);
+      throw new Error(`RunPod cancel failed: HTTP ${resp.status}`);
+    }
+    logger.info(`✅ RunPod job ${requestId} cancelled successfully`);
+  }
+
+  /** Purge the entire queue to remove any stuck jobs. */
+  async purgeQueue(): Promise<void> {
+    logger.info(`Purging RunPod queue for endpoint ${this.endpointId}`);
+    const resp = await fetch(`https://api.runpod.ai/v2/${this.endpointId}/purge-queue`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.apiKey}`
+      }
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      logger.runpodError(`Failed to purge queue: HTTP ${resp.status} – ${text}`);
+      throw new Error(`RunPod purge-queue failed: HTTP ${resp.status}`);
+    }
+    logger.info(`✅ RunPod queue purged successfully`);
   }
 } 

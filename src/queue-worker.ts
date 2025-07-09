@@ -1,7 +1,8 @@
 import { TranscriptionWorker } from "./worker.js";
 import { cloudinary } from "./cloudinary.js";
 import { pool } from "./db.js";
-import { RunPodClient } from "./utils/runpodClient.js";
+import { RunPodClient, RunPodUnhealthyError } from "./utils/runpodClient.js";
+import { logger } from "./utils/logger.js";
 import { fileURLToPath } from "url";
 
 interface Job {
@@ -228,15 +229,25 @@ class QueueWorker {
       }, 10000); // 10 seconds grace period
       
     } catch (error) {
-      // Update database with error
+      // If the error is a RunPodUnhealthyError, attempt cancellation & queue purge
+      if (error instanceof RunPodUnhealthyError && this.runpodClient) {
+        try {
+          await this.runpodClient.cancelJob(error.requestId);
+          await this.runpodClient.purgeQueue();
+        } catch (cleanupErr) {
+          logger.runpodError(`Post-failure cleanup failed: ${(cleanupErr as Error).message}`);
+        }
+      }
+
+      // Persist failure to database
       await pool.query(
         'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
         ['error', (error as Error).message, new Date(), jobId]
       );
-      
-      console.error(`❌ Job ${jobId} failed:`, error);
-      
-      // Remove from in-memory store
+
+      logger.error(`Job ${jobId} failed: ${(error as Error).message}`);
+
+      // Remove from in-memory store to prevent stale entries
       jobProgress.delete(jobId);
     }
   }
