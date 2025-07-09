@@ -97,18 +97,40 @@ export class RunPodClient {
       const requestId = await this.submitJob({ youtubeUrl });
       const output = await this.pollJob(requestId, onProgress);
       
-      // Validate output structure
-      if (!output || typeof output !== 'object') {
+      // Output may come in various shapes depending on worker implementation
+      // 1. Full JSON object with words/srt/plain/resultUrl
+      // 2. Object containing only a Cloudinary URL (e.g., { "resultUrl": "https://..." })
+      // 3. A raw string that is itself the Cloudinary URL
+      // We normalise to RunPodJobResult with at minimum a resultUrl.
+      
+      let result: RunPodJobResult;
+
+      if (typeof output === 'string') {
+        // Raw URL string
+        result = { words: [], srt: '', plain: '', resultUrl: output };
+      } else if (output && typeof output === 'object') {
+        // If the keys exist use them, else try to infer
+        if (output.resultUrl || output.result_url) {
+          result = {
+            words: output.words || [],
+            srt: output.srt || '',
+            plain: output.plain || '',
+            resultUrl: output.resultUrl || output.result_url
+          };
+        } else if (output.url && typeof output.url === 'string') {
+          // Some workers may return { url: "https://..." }
+          result = { words: [], srt: '', plain: '', resultUrl: output.url };
+        } else {
+          // Fallback: Attempt to stringify & upload elsewhere later
+          result = {
+            words: output.words || [],
+            srt: output.srt || '',
+            plain: output.plain || '',
+          } as RunPodJobResult;
+        }
+      } else {
         throw new Error("RunPod returned invalid output format");
       }
-      
-      // Ensure required fields are present
-      const result: RunPodJobResult = {
-        words: output.words || [],
-        srt: output.srt || "",
-        plain: output.plain || "",
-        resultUrl: output.resultUrl // Optional field
-      };
       
       console.log(`🎉 RunPod transcription completed successfully`);
       return result;
