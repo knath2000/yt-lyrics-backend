@@ -4,7 +4,7 @@ export interface RunPodJobResult {
   words: any[];
   srt: string;
   plain: string;
-  resultUrl?: string; // Optional - may be provided if RunPod uploads to Cloudinary
+  resultUrl?: string; // Optional - may it be provided if RunPod uploads to Cloudinary
 }
 
 export class RunPodClient {
