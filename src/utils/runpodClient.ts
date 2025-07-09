@@ -26,10 +26,11 @@ export class RunPodClient {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${this.apiKey}`
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         input: {
-          ...input,
-          // Signal to RunPod worker to terminate after completion
+          ...input
+        },
+        execution: {
           auto_terminate: true
         }
       })

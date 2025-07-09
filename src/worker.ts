@@ -171,7 +171,8 @@ export class TranscriptionWorker {
     youtubeUrl: string,
     onProgress?: (pct: number, status: string) => void,
     openaiModel?: string,
-    demucsModel?: string // 🆕 optional per-job Demucs model override
+    demucsModel?: string, // 🆕 optional per-job Demucs model override
+    skipDbUpdate: boolean = false // 🆕 new flag for serverless handler
   ): Promise<JobProcessingResult> {
     const jobDir = path.join(this.workDir, jobId);
 
@@ -305,28 +306,30 @@ export class TranscriptionWorker {
         public_id: `transcriptions/${jobId}/subtitles`,
       });
       
-      // Step 7: Update job metadata in database
-      await this.dbPool.query(
-        `UPDATE jobs SET
-         title = $1,
-         duration = $2,
-         status = $3,
-         results_url = $4,
-         srt_url = $5,
-         updated_at = $6,
-         completed_at = $7
-         WHERE id = $8`,
-        [
-          downloadResult.title,
-          downloadResult.duration,
-          'completed',
-          uploadResult.secure_url,
-          srtUploadResult.secure_url,
-          new Date(),
-          new Date(),
-          jobId
-        ]
-      );
+      // Step 7: Update job metadata in database (skip for serverless context)
+      if (!skipDbUpdate) {
+        await this.dbPool.query(
+          `UPDATE jobs SET
+           title = $1,
+           duration = $2,
+           status = $3,
+           results_url = $4,
+           srt_url = $5,
+           updated_at = $6,
+           completed_at = $7
+           WHERE id = $8`,
+          [
+            downloadResult.title,
+            downloadResult.duration,
+            'completed',
+            uploadResult.secure_url,
+            srtUploadResult.secure_url,
+            new Date(),
+            new Date(),
+            jobId
+          ]
+        );
+      }
       
       onProgress?.(100, "Complete!");
       
