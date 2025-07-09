@@ -58,6 +58,8 @@ export default function createJobsRouter(
       [id, parse.data.youtubeUrl, 'queued', new Date(), openaiModel]
     );
 
+    console.log(`🔖 Inserted job ${id} for URL ${parse.data.youtubeUrl}`);
+
     // DO NOT start processing here - let the queue worker handle it
     // processJobAsync(id, parse.data.youtubeUrl, worker); // REMOVED - causes SIGTERM
 

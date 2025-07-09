@@ -113,6 +113,7 @@ class QueueWorker {
   }
 
   private async processNextJob() {
+    console.log("⏳ Polling database for queued jobs...");
     // Check database for queued jobs
     const result = await pool.query(
       `SELECT id, youtube_url, openai_model FROM jobs
@@ -120,6 +121,8 @@ class QueueWorker {
        ORDER BY created_at ASC
        LIMIT 1`
     );
+
+    console.log(`🔍 Found ${result.rows.length} queued job(s)`);
 
     if (result.rows.length === 0) {
       // No jobs to process
