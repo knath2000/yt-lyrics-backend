@@ -4,6 +4,7 @@ import { pool } from "./db.js";
 import { RunPodClient, RunPodUnhealthyError } from "./utils/runpodClient.js";
 import { logger } from "./utils/logger.js";
 import { fileURLToPath } from "url";
+import { safeDbQuery } from "./db.js";
 
 interface Job {
   id: string;
@@ -108,10 +109,18 @@ class QueueWorker {
     this.isRunning = true;
     console.log("🚀 Queue worker started - polling for jobs every", this.pollInterval, "ms");
 
+    let lastHeartbeat = Date.now();
+
     while (this.isRunning) {
       try {
         await this.processNextJob();
         await this.sleep(this.pollInterval);
+
+        // Heartbeat log every 60 seconds
+        if (Date.now() - lastHeartbeat >= 60000) {
+          logger.info("💓 QueueWorker heartbeat – still alive");
+          lastHeartbeat = Date.now();
+        }
       } catch (error) {
         console.error("❌ Queue worker error:", error);
         await this.sleep(this.pollInterval);
@@ -127,7 +136,7 @@ class QueueWorker {
   private async processNextJob() {
     console.log("⏳ Polling database for queued jobs...");
     // Check database for queued jobs
-    const result = await pool.query(
+    const result = await safeDbQuery(
       `SELECT id, youtube_url, openai_model FROM jobs
        WHERE status = 'queued'
        ORDER BY created_at ASC
@@ -150,7 +159,7 @@ class QueueWorker {
     console.log(`📋 Processing job ${jobId} for URL: ${youtubeUrl}`);
 
     // Update job status to processing
-    await pool.query(
+    await safeDbQuery(
       'UPDATE jobs SET status = $1, updated_at = $2 WHERE id = $3',
       ['processing', new Date(), jobId]
     );
@@ -178,7 +187,7 @@ class QueueWorker {
         }
 
         // Update database with completed status and result URL
-        await pool.query(
+        await safeDbQuery(
           'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
           ['completed', resultUrl, new Date(), jobId]
         );
@@ -208,7 +217,7 @@ class QueueWorker {
         console.log(`✅ Job ${jobId} completed via local worker with result URL: ${resultUrl}`);
 
         // Persist completion to database
-        await pool.query(
+        await safeDbQuery(
           'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
           ['completed', resultUrl, new Date(), jobId]
         );
@@ -240,7 +249,7 @@ class QueueWorker {
       }
 
       // Persist failure to database
-      await pool.query(
+      await safeDbQuery(
         'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
         ['error', (error as Error).message, new Date(), jobId]
       );

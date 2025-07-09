@@ -71,9 +71,11 @@ export class RunPodClient {
       }
       const data: any = await resp.json();
       
-      // Log status changes
+      // Log status on every poll for full visibility
+      const pctStr = data?.output?.pct !== undefined ? ` – ${data.output.pct}%` : "";
+      console.log(`📊 RunPod job ${requestId} status: ${data.status}${pctStr}`);
+
       if (data.status !== lastStatus) {
-        console.log(`📊 RunPod job ${requestId} status: ${data.status}`);
         lastStatus = data.status;
       }
       
