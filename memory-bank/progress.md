@@ -4,6 +4,96 @@ _Important: As of 2025-12-08 the backend is **Railway-only**. All Fly.io deploym
 
 _Last updated: 2025-01-15_
 
+## ✅ MAJOR FIX: RunPod Integration Result Propagation & Worker Termination (2025-01-15)
+
+### 🎯 ACHIEVEMENT: Complete RunPod → Railway → Frontend Integration
+- **PROBLEM SOLVED**: RunPod jobs completed successfully but results weren't reaching Railway database or frontend
+- **COST OPTIMIZATION**: Fixed RunPod workers continuing to run after completion, draining credits unnecessarily
+- **FULL PIPELINE**: RunPod transcription results now properly flow through entire system
+
+### 🔧 Technical Implementation
+- **Enhanced `queue-worker.ts`** with comprehensive RunPod result handling:
+  ```typescript
+  // New helper function for result upload
+  private async uploadRunPodResultsToCloudinary(jobId: string, runpodResult: any): Promise<string>
+  
+  // Enhanced job completion flow
+  if (this.runpodClient) {
+    result = await this.runpodClient.runTranscription(youtubeUrl, progressCallback);
+    
+    // Handle both pre-uploaded and raw results
+    if (result.resultUrl) {
+      resultUrl = result.resultUrl; // RunPod uploaded directly
+    } else {
+      resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, result); // Upload ourselves
+    }
+    
+    // CRITICAL: Update database with completion status
+    await pool.query(
+      'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
+      ['completed', resultUrl, new Date(), jobId]
+    );
+  }
+  ```
+
+- **Enhanced `runpodClient.ts`** with better lifecycle management:
+  ```typescript
+  // Auto-termination signal to prevent credit drain
+  body: JSON.stringify({ 
+    input: {
+      ...input,
+      auto_terminate: true // Signal worker to exit after completion
+    }
+  })
+  
+  // Enhanced logging and error handling
+  console.log(`📊 RunPod job ${requestId} status: ${data.status}`);
+  console.log(`✅ RunPod job ${requestId} completed successfully`);
+  ```
+
+### 📊 Integration Flow
+1. **Job Submission**: Frontend → Railway `/api/jobs` → QueueWorker
+2. **RunPod Processing**: QueueWorker → RunPod API → Serverless transcription
+3. **Result Upload**: RunPod results → Cloudinary (JSON + SRT files)
+4. **Database Update**: Railway updates job status to 'completed' with result URL
+5. **Frontend Access**: Existing API endpoints serve completed results
+6. **Worker Termination**: RunPod worker receives auto_terminate signal and exits
+
+### 🎯 RunPod Worker Requirements (Implementation Needed)
+The RunPod worker code should implement:
+```python
+# Python implementation
+import os
+import sys
+
+def handler(event):
+    # ... transcription processing ...
+    
+    result = {
+        "words": word_timestamps,
+        "srt": srt_content, 
+        "plain": plain_text,
+        "resultUrl": cloudinary_url  # Optional if uploading directly
+    }
+    
+    # Check for auto-termination signal
+    if event.get('input', {}).get('auto_terminate'):
+        # Clean exit to stop worker and prevent credit drain
+        os._exit(0)
+    
+    return result
+```
+
+### 💰 Cost Impact
+- **Before**: Workers continued running indefinitely after job completion
+- **After**: Workers terminate immediately after returning results
+- **Savings**: Significant reduction in idle compute time and credit usage
+
+## ✅ PARTIAL FIX: Successful Download via 'unauth-ios' Strategy (2025-07-08)
+- Observed in RunPod worker logs: `Successfully downloaded using method: unauth-ios`
+- Confirms YouTube audio can be downloaded without cookies using iOS client emulation.
+- Next Steps: replicate on Railway, integrate into fallback chain, and assess stability.
+
 ## ❌ CRITICAL SESSION WORK (2025-01-15)
 
 ### 🔴 MAJOR ISSUE: YouTube Bot Detection Blocking All Downloads

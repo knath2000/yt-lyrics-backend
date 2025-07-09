@@ -46,6 +46,47 @@ class QueueWorker {
     );
   }
 
+  /**
+   * Upload RunPod transcription results to Cloudinary and return secure URLs
+   * This mimics what TranscriptionWorker.processJob() does for local processing
+   */
+  private async uploadRunPodResultsToCloudinary(jobId: string, runpodResult: any): Promise<string> {
+    try {
+      // Upload JSON results to Cloudinary
+      const jsonUploadResult = await cloudinary.uploader.upload(
+        `data:application/json;base64,${Buffer.from(JSON.stringify(runpodResult)).toString('base64')}`,
+        {
+          resource_type: 'raw',
+          public_id: `transcriptions/${jobId}/results`,
+          format: 'json',
+          overwrite: true,
+          tags: ['transcription_results', `job:${jobId}`]
+        }
+      );
+
+      // Upload SRT file to Cloudinary if present
+      if (runpodResult.srt) {
+        await cloudinary.uploader.upload(
+          `data:text/plain;base64,${Buffer.from(runpodResult.srt).toString('base64')}`,
+          {
+            resource_type: 'raw',
+            public_id: `transcriptions/${jobId}/subtitles`,
+            format: 'srt',
+            overwrite: true,
+            tags: ['transcription_subtitles', `job:${jobId}`]
+          }
+        );
+      }
+
+      console.log(`✅ Uploaded RunPod results for job ${jobId} to Cloudinary: ${jsonUploadResult.secure_url}`);
+      return jsonUploadResult.secure_url;
+
+    } catch (uploadError) {
+      console.error(`❌ Failed to upload RunPod results for job ${jobId} to Cloudinary:`, uploadError);
+      throw new Error(`Failed to upload results to Cloudinary: ${(uploadError as Error).message}`);
+    }
+  }
+
   async start() {
     if (this.isRunning) {
       console.log("Queue worker is already running");
@@ -101,12 +142,34 @@ class QueueWorker {
 
     try {
       let result;
+      let resultUrl: string;
+
       if (this.runpodClient) {
         // Offload to RunPod
+        console.log(`🚀 Submitting job ${jobId} to RunPod endpoint`);
         result = await this.runpodClient.runTranscription(youtubeUrl, (pct, status) => {
           jobProgress.set(jobId, { id: jobId, status: "processing", pct, statusMessage: status });
         });
-        // After receiving, upload any needed artifacts or pass resultUrl directly
+
+        console.log(`✅ RunPod job ${jobId} completed, uploading results to Cloudinary...`);
+
+        // Check if RunPod already provided a resultUrl (if it uploaded to Cloudinary itself)
+        if (result.resultUrl) {
+          resultUrl = result.resultUrl;
+          console.log(`📄 Using RunPod-provided result URL: ${resultUrl}`);
+        } else {
+          // Upload RunPod results to Cloudinary ourselves
+          resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, result);
+        }
+
+        // Update database with completed status and result URL
+        await pool.query(
+          'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
+          ['completed', resultUrl, new Date(), jobId]
+        );
+
+        console.log(`✅ Job ${jobId} completed via RunPod with result URL: ${resultUrl}`);
+
       } else {
         // Local processing
         result = await this.worker.processJob(
@@ -125,22 +188,24 @@ class QueueWorker {
           openaiModel,
           demucsModel
         );
+
+        resultUrl = result.resultUrl;
+        console.log(`✅ Job ${jobId} completed via local worker with result URL: ${resultUrl}`);
       }
 
-      // Job completed successfully - the worker already updated the database
-      // Just update our in-memory tracking and log success
+      // Update in-memory tracking for immediate API access
       jobProgress.set(jobId, {
         id: jobId,
         status: "done",
         pct: 100,
-        resultUrl: result.resultUrl,
+        resultUrl: resultUrl,
         statusMessage: "Complete!"
       });
       
-      console.log(`✅ Job ${jobId} completed successfully with result URL: ${result.resultUrl}`);
-      
-      // Remove from in-memory store since it's now in database
-      jobProgress.delete(jobId);
+      // Remove from in-memory store after a brief delay to allow final status checks
+      setTimeout(() => {
+        jobProgress.delete(jobId);
+      }, 10000); // 10 seconds grace period
       
     } catch (error) {
       // Update database with error

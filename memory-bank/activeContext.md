@@ -3,16 +3,17 @@
 _Last updated: 2025-01-15_
 
 ## Current Focus
-- **CRITICAL ISSUE**: YouTube sign-in bot detection affecting all presets
-- **YT-DLP LOGIC RESTORATION**: Attempted to restore previous successful yt-dlp multi-strategy fallback chain
-- **DOWNLOAD PIPELINE FAILURES**: All download methods failing with "Sign in to confirm you're not a bot" errors
-- **SESSION STATUS**: Paused - requires cookie authentication or alternative approach
+- **✅ FIXED**: RunPod integration result propagation and worker termination
+- **RUNPOD INTEGRATION**: Backend now properly handles RunPod job completion and uploads results to Cloudinary
+- **WORKER TERMINATION**: Added auto_terminate signal to prevent credit drain from idle RunPod workers
+- **DATABASE SYNC**: RunPod results now properly update Railway database for frontend access
+- **SESSION STATUS**: Ready for testing RunPod → Railway → Frontend flow
 
 ## Current Deployment Status
 
 ### Railway Deployment
 - **URL**: `https://yt-lyrics-backend-production.up.railway.app`
-- **Status**: 🔴 FAILING - YouTube bot detection blocking all downloads
+- **Status**: 🟡 ENHANCED - RunPod integration fixes implemented
 - **Configuration**: Uses Railway's container platform with automatic scaling
 - **Signal Handling**: Fixed with direct Node.js execution (`node dist/index.js`)
 
@@ -25,74 +26,101 @@ We have sunset the Fly.io deployment. The backend is **exclusively** hosted on R
 
 ## Recent Session Work (2025-01-15)
 
-### ❌ ISSUE: YouTube Bot Detection Across All Presets
-- **Problem**: User reported sign-in messages returned regardless of preset chosen
-- **Error Pattern**: "Sign in to confirm you're not a bot. Use --cookies-from-browser or --cookies for the authentication"
-- **Affected**: All quality presets (low, regular, high) failing with same error
-- **Status**: CRITICAL - No downloads working
+### ✅ FIXED: RunPod Result Propagation and Worker Termination
+- **PROBLEM**: RunPod jobs completed successfully but results weren't saved to Railway database
+- **PROBLEM**: RunPod workers continued running after completion, draining credits unnecessarily
+- **SOLUTION**: Enhanced `queue-worker.ts` with proper result handling and worker termination
 
-### ⚠️ ATTEMPTED: Multi-Strategy yt-dlp Restoration
-- **Action**: Restored previous four-step fallback chain in `ytDlpDownloader.ts`
-- **Strategies Restored**:
-  1. `authenticated-m4a` (requires cookies)
-  2. `unauthenticated-m4a` (no cookies)  
-  3. `authenticated-generic` (requires cookies)
-  4. `unauthenticated-generic` (no cookies)
-- **Result**: All strategies failing with YouTube bot detection
-- **Issue**: Even unauthenticated methods being blocked by YouTube
+#### Code Changes Made:
+1. **Added `uploadRunPodResultsToCloudinary()` helper function**:
+   - Uploads JSON results to `transcriptions/{jobId}/results`
+   - Uploads SRT subtitles to `transcriptions/{jobId}/subtitles`
+   - Returns secure Cloudinary URL for database storage
 
-### 📋 Error Analysis
-- **Command Failing**: `yt-dlp https://youtu.be/MGVvaHEY27Y -f best --no-playlist -x --audio-format mp3 --audio-quality 0 -o temp/973e7e5c-32bf-4480-a041-44f56185a5a2/video_1731984244610.%(ext)s --no-check-certificate --ignore-errors --socket-timeout 30 --retries 3 --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 --referer https://www.youtube.com/ --add-header Accept-Language:en-US,en;q=0.9`
-- **YouTube Response**: "Sign in to confirm you're not a bot"
-- **Scope**: Affecting all download methods, not just authenticated ones
-- **Impact**: Complete service failure
+2. **Enhanced RunPod job completion flow**:
+   - Checks if RunPod already provided `resultUrl` (direct Cloudinary upload)
+   - Falls back to uploading results ourselves if needed
+   - **CRITICAL**: Updates database with `status = 'completed'` and `results_url`
+   - Maintains in-memory progress tracking for real-time API access
+
+3. **Added worker termination signal**:
+   - `auto_terminate: true` flag sent to RunPod worker
+   - Enhanced logging for job status tracking
+   - Better error handling and validation
+
+#### Impact:
+- **Frontend Integration**: RunPod jobs now appear as completed in frontend
+- **Cost Optimization**: Workers terminate after completion, preventing credit drain
+- **Reliability**: Proper error handling and result validation
+- **Consistency**: Same result format whether processed locally or via RunPod
+
+### 🎯 RunPod Worker Requirements (for completion)
+The RunPod worker Python/Node.js code should:
+1. **Accept `auto_terminate` input parameter** and call `os._exit(0)` or `process.exit(0)` when done
+2. **Alternative**: Enable "Auto-stop after X min idle" in RunPod dashboard settings
+3. **Return proper result format**:
+   ```json
+   {
+     "words": [...],
+     "srt": "subtitle content",
+     "plain": "plain text",
+     "resultUrl": "optional_cloudinary_url"
+   }
+   ```
+
+### ❌ PREVIOUS ISSUE: YouTube Bot Detection (Background Issue)
+- **STATUS**: Secondary priority - RunPod may bypass some YouTube restrictions
+- **FALLBACK**: Local processing still available as backup
+- **MONITORING**: Track success rates for both RunPod and local processing
 
 ## Technical Stack Details (Current State)
 
-### Audio Processing Pipeline (Broken at Stage 1)
-- **Stage 1: YouTube Download** ❌ FAILING
-  - **Tool**: yt-dlp (Python CLI) via ytDlpDownloader.ts
-  - **Issue**: YouTube bot detection blocking all attempts
-  - **Status**: Complete failure across all strategies
+### Audio Processing Pipeline - RunPod Integration
+- **Stage 1: Job Routing** 
+  - **QueueWorker**: Checks for RunPod config, routes accordingly
+  - **RunPod Path**: Offloads to serverless endpoint via API
+  - **Local Path**: Uses TranscriptionWorker as before
 
-- **Stage 2-5**: Vocal Separation, Transcription, Alignment, Output Generation
-  - **Status**: Cannot reach due to Stage 1 failure
+- **Stage 2: Result Handling**
+  - **RunPod Results**: Upload to Cloudinary → Update database
+  - **Local Results**: Direct database update (existing flow)
+  - **Frontend Access**: Same API endpoints work for both paths
 
-## Next Steps Required (Tomorrow's Session)
+### Database Integration
+- **Jobs Table**: Stores job metadata, status, and result URLs
+- **Status Tracking**: In-memory progress for real-time updates
+- **Result Storage**: Cloudinary URLs in `results_url` field
+- **Error Handling**: Proper error messages in `error_message` field
 
-### Immediate Priorities
-1. **Cookie Authentication**: Implement proper YouTube cookie handling
-   - Research `--cookies-from-browser` option
-   - Set up cookie extraction from Chrome/Firefox
-   - Test authenticated downloads with real cookies
+## Next Steps Required
 
-2. **Alternative Approaches**: 
-   - Investigate newer yt-dlp versions with better bot evasion
-   - Research alternative YouTube download libraries
-   - Consider YouTube Data API v3 for metadata (though no audio)
+### Immediate Testing
+1. **Test RunPod → Railway Flow**:
+   - Submit job via frontend
+   - Verify RunPod processing
+   - Confirm results appear in frontend
+   - Check worker termination in RunPod dashboard
 
-3. **Bot Evasion Enhancement**:
-   - Update user agents to latest Chrome versions
-   - Implement IP rotation if possible
-   - Research proxy integration options
+2. **Monitor Credit Usage**:
+   - Verify workers stop after completion
+   - Track processing times vs costs
+   - Compare local vs RunPod performance
 
-### Investigation Required
-1. **yt-dlp Version**: Check if newer versions handle bot detection better
-2. **Cookie Integration**: Full implementation of browser cookie extraction
-3. **Alternative Libraries**: Research `pytube`, `youtube-dl` alternatives
-4. **Rate Limiting**: Implement delays between requests
+### Future Enhancements
+1. **Intelligent Routing**: Route based on job complexity or current load
+2. **Performance Metrics**: Track success rates and processing times
+3. **Cost Optimization**: Dynamic endpoint selection based on credit balance
 
 ## Timeline Update
 | Date       | Milestone                               |
 |------------|-----------------------------------------|
-| 2025-01-15 | **CURRENT**: Session paused due to YouTube bot detection blocking all downloads |
-| 2025-01-15 | Attempted yt-dlp multi-strategy restoration - unsuccessful |
-| 2025-01-15 | Identified critical issue affecting all presets |
+| 2025-01-15 | **CURRENT**: RunPod integration fixes implemented - ready for testing |
+| 2025-01-15 | Fixed result propagation and worker termination issues |
+| 2025-01-15 | Enhanced queue worker with Cloudinary upload helper |
 | 2025-12-08 | Cloudinary cache restoration and downloader bug fixes |
 | 2025-12-07 | Major rollback to commit 34e90b3 completed |
 
 ## Known Issues
-- **CRITICAL**: YouTube bot detection blocking all download attempts
-- **SCOPE**: Affects all presets and download strategies  
-- **URGENCY**: High - service completely non-functional
-- **NEXT SESSION**: Focus on cookie authentication and bot evasion
+- **TESTING REQUIRED**: RunPod → Railway → Frontend flow needs validation
+- **WORKER TERMINATION**: RunPod worker code needs auto_terminate implementation
+- **MONITORING**: Need to track credit usage and worker lifecycle
