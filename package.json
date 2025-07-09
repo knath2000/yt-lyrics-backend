@@ -32,7 +32,6 @@
     "@types/uuid": "^9.0.8",
     "tsx": "^4.7.1",
     "typescript": "^5.4.3",
-    "patch-package": "^8.0.0",
-    "postinstall-postinstall": "^2.0.0"
+    "patch-package": "^8.0.0"
   }
 }

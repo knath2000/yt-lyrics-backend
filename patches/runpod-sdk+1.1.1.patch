@@ -1,6 +1,13 @@
-diff --git a/node_modules/runpod-sdk/dist/index.js b/node_modules/runpod-sdk/dist/index.js
---- a/node_modules/runpod-sdk/dist/index.js
-+++ b/node_modules/runpod-sdk/dist/index.js
-@@
+diff --git a/node_modules/runpod-sdk/dist/src/index.js b/node_modules/runpod-sdk/dist/src/index.js
+index e886f24..b7a80f1 100644
+--- a/node_modules/runpod-sdk/dist/src/index.js
++++ b/node_modules/runpod-sdk/dist/src/index.js
+@@ -59,7 +59,7 @@ var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _ar
+ };
+ import xior from "xior";
+ import { curry, clamp, isNil } from "ramda";
 -import pkg from "../package.json";
-+import pkg from "../package.json" assert { type: "json" }; 
++import pkg from "../package.json" assert { type: "json" };
+ var axios = xior.create();
+ function getUserAgent() {
+     var sdkVersion = pkg.version;
