@@ -17,10 +17,17 @@ export class ModalClient {
   private client;
   private fn;
 
-  constructor(tokenId: string, tokenSecret: string, appName = "yt-lyrics-transcribe") {
+  constructor(
+    tokenId: string,
+    tokenSecret: string,
+    {
+      appName = "youtube-transcription", // default Modal app name
+      functionName = "transcribe_youtube", // default exported function name
+    }: { appName?: string; functionName?: string } = {}
+  ) {
     this.client = modal.createClient({ tokenId, tokenSecret });
-    // Fully-qualified function name: <appName>.transcribe_audio
-    this.fn = this.client.function(`${appName}.transcribe_audio`);
+    // Fully-qualified function name: <appName>.<functionName>
+    this.fn = this.client.function(`${appName}.${functionName}`);
   }
 
   /**

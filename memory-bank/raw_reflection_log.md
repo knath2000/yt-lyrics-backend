@@ -262,3 +262,24 @@ Improvements_Identified_For_Consolidation:
 - Pattern: Always pass cookie jar path to workers that rely on yt-dlp authentication when secrets available.
 - Practice: initializeCookieJar() should be invoked in any process that performs downloads.
 ---
+---
+Date: 2025-07-10
+TaskRef: "Enable Fly → Modal offload and fix function name mismatch"
+
+Learnings:
+- Fly backend now offloads transcription jobs to Modal when `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` secrets are present.
+- `ModalClient` defaulted to `<app>.transcribe_audio` but deployed Modal function is `transcribe_youtube` under app `youtube-transcription`.
+- Updated `ModalClient` constructor to accept optional `appName` and `functionName` with new defaults (`youtube-transcription.transcribe_youtube`).
+- No API changes required; QueueWorker automatically uses Modal when credentials exist.
+
+Difficulties:
+- Modal function naming mismatch caused 404 error (`FunctionNotFound`) during runtime.
+- Needed to ensure code change doesn’t break existing local processing path.
+
+Successes:
+- Jobs are successfully executed on Modal GPU backend; Fly worker waits for completion and stores Cloudinary result.
+- Verified end-to-end flow: frontend → Fly API → Modal GPU → Cloudinary → DB → frontend.
+
+Improvements_Identified_For_Consolidation:
+- Pattern: Parameterize external function identifiers to avoid hard-coded names.
+- Practice: Keep serverless function names consistent between code and infra.

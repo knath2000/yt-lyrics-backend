@@ -136,3 +136,4 @@ The RunPod worker Python/Node.js code should:
 - **MONITORING**: Need to track credit usage and worker lifecycle
 
 - **✅ MODAL DEPLOYMENT**: Fixed container build by adding `git` to apt packages and fallback yt-dlp install; GPU transcription function now deploys successfully.
+- **✅ MODAL OFFLOAD**: Fly QueueWorker now offloads transcription jobs to Modal GPU function `youtube-transcription.transcribe_youtube` when credentials provided.

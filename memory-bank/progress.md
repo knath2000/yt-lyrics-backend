@@ -648,3 +648,11 @@ def handler(event):
 - **REQUIREMENT**: Added Fly secret `YOUTUBE_COOKIES_CONTENT` with exported browser cookies.
 - **RESULT**: Authenticated yt-dlp strategies (`authenticated-ios`, etc.) now run, dramatically improving download success rates.
 - **IMPACT**: Frontend no longer encounters "Sign in to confirm you're not a bot" errors when submitting jobs to Fly backend.
+
+### ✅ ENHANCEMENT: Fly → Modal GPU Offload (2025-07-10)
+- **GOAL**: Run heavy transcription pipeline on Modal GPUs instead of Fly CPU instance.
+- **CHANGES**:
+  - Added `ModalClient` defaults for app `youtube-transcription` and function `transcribe_youtube`.
+  - QueueWorker now detects `MODAL_TOKEN_ID` & `MODAL_TOKEN_SECRET` and submits jobs to Modal, streaming progress back.
+- **RESULT**: Significant performance boost and reduced load on Fly machine; jobs complete on GPU while Fly handles orchestration.
+- **IMPACT**: End-to-end flow validated; frontend receives results with no code changes.
