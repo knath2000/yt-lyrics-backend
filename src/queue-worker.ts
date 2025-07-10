@@ -20,7 +20,7 @@ interface Job {
 const jobProgress = new Map<string, Job>();
 
 class QueueWorker {
-  private worker: TranscriptionWorker;
+  private worker: TranscriptionWorker | null = null;
   private modalClient: ModalClient | null = null;
   private isRunning = false;
   private pollInterval = 5000; // 5 seconds
@@ -28,30 +28,29 @@ class QueueWorker {
   constructor() {
     // Cloudinary is now configured in the centralized module
 
-    // Initialize TranscriptionWorker with required parameters
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
-      throw new Error("OPENAI_API_KEY environment variable is required");
-    }
-
-    // If Modal credentials present, initialize client for fallback processing
+    // Modal credentials are required for optimal GPU processing
     if (process.env.MODAL_TOKEN_ID && process.env.MODAL_TOKEN_SECRET) {
       this.modalClient = new ModalClient();
-      console.log("🔄 Modal integration enabled as fallback – jobs will try local processing first, then Modal if needed");
+      console.log("🚀 Modal GPU processing enabled – jobs will be processed on high-performance A10G GPUs");
     } else {
-      console.log("🏠 Local-only processing – no Modal fallback available");
+      console.warn("⚠️ Modal GPU processing unavailable – please configure MODAL_TOKEN_ID and MODAL_TOKEN_SECRET for optimal performance");
     }
 
     // Initialize cookie jar (creates cookies.txt from env secret if provided)
     const cookieFilePath = initializeCookieJar();
 
-    this.worker = new TranscriptionWorker(
-      openaiApiKey,
-      pool, // database pool
-      cloudinary, // cloudinary instance
-      "./temp", // work directory
-      cookieFilePath // provide cookie file path so authenticated yt-dlp strategies can run
-    );
+    // Note: TranscriptionWorker is kept for potential future local fallback scenarios
+    // but primary processing now occurs on Modal GPU infrastructure
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (openaiApiKey) {
+      this.worker = new TranscriptionWorker(
+        openaiApiKey,
+        pool, // database pool
+        cloudinary, // cloudinary instance
+        "./temp", // work directory
+        cookieFilePath // provide cookie file path for any future local processing needs
+      );
+    }
 
     if (process.env.DATABASE_URL) {
       try {
@@ -158,10 +157,6 @@ class QueueWorker {
 
     const { id: jobId, youtube_url: youtubeUrl, openai_model: openaiModel } = result.rows[0];
 
-    // For current testing we use the **same** Demucs model (standard htdemucs)
-    // regardless of the chosen transcription model preset.
-    const demucsModel = "htdemucs";
-    
     console.log(`📋 Processing job ${jobId} for URL: ${youtubeUrl}`);
 
     // Update job status to processing
@@ -170,80 +165,93 @@ class QueueWorker {
       ['processing', new Date(), jobId]
     );
 
+    // Update in-memory progress
+    jobProgress.set(jobId, {
+      id: jobId,
+      status: "processing",
+      pct: 5,
+      statusMessage: "Starting processing..."
+    });
+
     try {
       let resultUrl: string;
 
-      // 🔄 TIERED PROCESSING APPROACH:
-      // 1. Try local processing first (cost-effective)
-      // 2. Fallback to Modal if local fails (reliability)
-      
-      console.log(`🏠 Attempting local processing for job ${jobId}...`);
-      
-      try {
-        // Try local processing first
-        const localResult = await this.worker.processJob(
-          jobId,
-          youtubeUrl,
-          (pct: number, status: string) => {
-            // Update in-memory progress for real-time API access
+      if (this.modalClient) {
+        console.log(`🎯 CORRECT ARCHITECTURE: Fly.io downloads first, Modal processes`);
+        
+        // STEP 1: Fly.io attempts YouTube download
+        jobProgress.set(jobId, {
+          id: jobId,
+          status: "processing",
+          pct: 10,
+          statusMessage: "[Fly.io] Attempting YouTube download..."
+        });
+
+        let audioUrl: string | null = null;
+        let downloadError: string | null = null;
+
+        if (this.worker) {
+          try {
+            console.log(`📥 [Fly.io] Attempting YouTube download for job ${jobId}...`);
+            
+            // Try Fly.io download using the new public method
+            const downloadResult = await this.worker.downloadAudioForModal(youtubeUrl, jobId);
+            
+            audioUrl = downloadResult.audioUrl;
+            
             jobProgress.set(jobId, {
               id: jobId,
               status: "processing",
-              pct,
-              statusMessage: `[LOCAL] ${status}`
+              pct: 25,
+              statusMessage: "[Fly.io] Download successful, sending to Modal GPU..."
             });
-            console.log(`Job ${jobId}: ${pct}% - [LOCAL] ${status}`);
-          },
-          openaiModel,
-          demucsModel
-        );
-
-        resultUrl = localResult.resultUrl;
-        console.log(`✅ Job ${jobId} completed via LOCAL processing with result URL: ${resultUrl}`);
-
-      } catch (localError) {
-        console.log(`❌ Local processing failed for job ${jobId}: ${(localError as Error).message}`);
-        
-        if (this.modalClient) {
-          console.log(`🚀 Falling back to Modal GPU processing for job ${jobId}...`);
-          
-          // Reset progress to indicate fallback
-          jobProgress.set(jobId, {
-            id: jobId,
-            status: "processing",
-            pct: 5,
-            statusMessage: "[FALLBACK] Retrying with Modal GPU processing..."
-          });
-          
-          const modalInput = {
-            youtube_url: youtubeUrl,
-            job_id: jobId
-          };
-
-          const modalResult: ModalJobResult = await this.modalClient.submitJob(modalInput);
-          
-          if (modalResult.status === "error") {
-            throw new Error(`Modal fallback also failed: ${modalResult.error?.message || "Modal processing failed"}`);
+            
+          } catch (error) {
+            downloadError = (error as Error).message;
+            console.log(`❌ [Fly.io] Download failed: ${downloadError}`);
+            console.log(`🔄 [Modal] Will attempt download as fallback...`);
+            
+            jobProgress.set(jobId, {
+              id: jobId,
+              status: "processing",
+              pct: 15,
+              statusMessage: "[Fly.io] Download failed, Modal will attempt download..."
+            });
           }
-
-          console.log(`✅ Modal fallback transcription job ${jobId} completed, uploading results to Cloudinary...`);
-
-          // Check if Modal already provided a resultUrl (if it uploaded to Cloudinary itself)
-          if (modalResult.output && modalResult.output.resultUrl) {
-            resultUrl = modalResult.output.resultUrl;
-            console.log(`📄 Using Modal-provided result URL: ${resultUrl}`);
-          } else {
-            // Upload Modal results to Cloudinary ourselves
-            resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, modalResult.output);
-          }
-
-          console.log(`✅ Job ${jobId} completed via MODAL FALLBACK with result URL: ${resultUrl}`);
-          
-        } else {
-          // No Modal fallback available - re-throw the local error
-          console.log(`❌ No Modal fallback available for job ${jobId} - local processing failed`);
-          throw localError;
         }
+
+        // STEP 2: Send job to Modal (with or without pre-downloaded audio)
+        console.log(`🚀 [Modal] Processing job ${jobId} with GPU...`);
+        
+        const modalInput = {
+          youtube_url: youtubeUrl,
+          job_id: jobId,
+          audio_url: audioUrl, // null if Fly.io download failed
+          fly_download_error: downloadError // inform Modal of Fly.io failure
+        };
+
+        const modalResult: ModalJobResult = await this.modalClient.submitJob(modalInput);
+        
+        if (modalResult.status === "error") {
+          throw new Error(`Modal GPU processing failed: ${modalResult.error?.message || "Unknown Modal error"}`);
+        }
+
+        console.log(`✅ [Modal] Job ${jobId} completed successfully`);
+
+        // Extract result URL from Modal response
+        if (modalResult.output && modalResult.output.results_url) {
+          resultUrl = modalResult.output.results_url;
+        } else if (modalResult.output && modalResult.output.resultUrl) {
+          resultUrl = modalResult.output.resultUrl;
+        } else {
+          throw new Error("Modal did not return a valid result URL");
+        }
+
+        console.log(`📄 Job ${jobId} completed with result URL: ${resultUrl}`);
+        
+      } else {
+        // No Modal available - this should be rare in production
+        throw new Error("Modal GPU processing unavailable. Please configure MODAL_TOKEN_ID and MODAL_TOKEN_SECRET environment variables.");
       }
 
       // Update database with completed status and result URL
@@ -252,31 +260,34 @@ class QueueWorker {
         ['completed', resultUrl, new Date(), jobId]
       );
 
-      // Update in-memory tracking for immediate API access
+      // Update in-memory progress to completed
       jobProgress.set(jobId, {
         id: jobId,
         status: "done",
         pct: 100,
-        resultUrl: resultUrl,
-        statusMessage: "Complete!"
+        statusMessage: "Processing completed successfully!",
+        resultUrl: resultUrl
       });
-      
-      // Remove from in-memory store after a brief delay to allow final status checks
-      setTimeout(() => {
-        jobProgress.delete(jobId);
-      }, 10000); // 10 seconds grace period
-      
-    } catch (error) {
-      // Persist failure to database
+
+      console.log(`✅ Job ${jobId} completed successfully`);
+
+    } catch (error: any) {
+      console.error(`❌ Job ${jobId} failed:`, error);
+
+      // Update database with error status
       await safeDbQuery(
         'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
-        ['error', (error as Error).message, new Date(), jobId]
+        ['error', error.message, new Date(), jobId]
       );
-      
-      logger.error(`Job ${jobId} failed completely: ${(error as Error).message}`);
-      
-      // Remove from in-memory store to prevent stale entries
-      jobProgress.delete(jobId);
+
+      // Update in-memory progress to error
+      jobProgress.set(jobId, {
+        id: jobId,
+        status: "error",
+        pct: 0,
+        statusMessage: `Processing failed: ${error.message}`,
+        error: error.message
+      });
     }
   }
 
@@ -294,6 +305,20 @@ class QueueWorker {
 
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
+  }
+
+  private extractVideoId(youtubeUrl: string): string {
+    const url = new URL(youtubeUrl);
+    const videoId = url.searchParams.get('v');
+    if (videoId) {
+      return videoId;
+    }
+    const pathSegments = url.pathname.split('/');
+    const lastSegment = pathSegments[pathSegments.length - 1];
+    if (lastSegment.length === 11) { // YouTube video IDs are 11 characters
+      return lastSegment;
+    }
+    throw new Error(`Could not extract video ID from URL: ${youtubeUrl}`);
   }
 }
 

@@ -166,6 +166,47 @@ export class TranscriptionWorker {
     }
   }
 
+  /**
+   * Public method for QueueWorker to attempt YouTube download
+   * Returns the downloaded audio path and uploads to Cloudinary for Modal access
+   */
+  async downloadAudioForModal(youtubeUrl: string, jobId: string): Promise<{ audioUrl: string; videoId: string }> {
+    const videoId = this.extractVideoId(youtubeUrl);
+    if (!videoId) {
+      throw new Error(`Could not extract video ID from URL: ${youtubeUrl}`);
+    }
+
+    const jobDir = path.join(this.workDir, jobId);
+    
+    // Ensure job directory exists
+    if (!fs.existsSync(jobDir)) {
+      fs.mkdirSync(jobDir, { recursive: true });
+    }
+
+    // Try download using HybridDownloader
+    const downloadResult = await this.hybridDownloader.downloadAudio(youtubeUrl, jobDir);
+    
+    if (!downloadResult || !downloadResult.audioPath) {
+      throw new Error("Download failed - no audio file created");
+    }
+
+    console.log(`✅ [Fly.io] Download successful: ${downloadResult.audioPath}`);
+    
+    // Upload audio to Cloudinary for Modal access
+    const audioUploadResult = await this.cloudinary.uploader.upload(downloadResult.audioPath, {
+      resource_type: "video",
+      public_id: `audio/${videoId}/bestaudio_mp3`,
+      tags: ["yt_audio_cache", `video:${videoId}`]
+    });
+    
+    console.log(`📤 [Fly.io] Audio uploaded to Cloudinary: ${audioUploadResult.secure_url}`);
+    
+    return {
+      audioUrl: audioUploadResult.secure_url,
+      videoId: videoId
+    };
+  }
+
   async processJob(
     jobId: string,
     youtubeUrl: string,
