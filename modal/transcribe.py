@@ -63,7 +63,8 @@ app = modal.App("youtube-transcription")
     cpu=4.0,       # 4 CPU cores
     secrets=[
         modal.Secret.from_name("openai-api-key"),
-        modal.Secret.from_name("cloudinary-config")
+        modal.Secret.from_name("cloudinary-config"),
+        modal.Secret.from_name("youtube-cookies")  # Add YouTube cookies secret
     ]
 )
 # Expose as POST endpoint: expects JSON { "youtube_url": "..." }
@@ -129,36 +130,49 @@ def transcribe_youtube(
 def download_youtube_audio(youtube_url: str, temp_path: Path) -> Path:
     """Download YouTube audio using comprehensive multi-strategy fallback"""
     
+    # Check for YouTube cookies from environment variable
+    youtube_cookies = os.environ.get("YOUTUBE_COOKIES_CONTENT")
+    cookies_file = None
+    
+    if youtube_cookies:
+        # Create temporary cookies file from environment variable
+        cookies_file = temp_path / "cookies.txt"
+        with open(cookies_file, 'w') as f:
+            f.write(youtube_cookies)
+        print(f"[Download] Created cookies file with {len(youtube_cookies)} characters")
+    else:
+        print("[Download] No YouTube cookies available - using unauthenticated methods only")
+    
     # Define player clients for different strategies
     player_clients = ["tv", "ios", "web"]
     
     # Define authenticated download methods (require cookies)
     authenticated_methods = []
-    for client in player_clients:
-        authenticated_methods.append({
-            "name": f"authenticated-{client}",
-            "description": f"Authenticated download using explicit {client} player client",
-            "args": [
-                youtube_url,
-                "--cookies-from-browser", "chrome",  # Try to extract cookies from browser
-                "-f", "bestaudio[ext=m4a]/bestaudio",
-                "--no-playlist",
-                "-x",
-                "--audio-format", "wav",
-                "--audio-quality", "0",
-                "-o", str(temp_path / "audio.%(ext)s"),
-                "--no-check-certificate",
-                "--ignore-errors", 
-                "--socket-timeout", "30",
-                "--retries", "3",
-                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "--referer", "https://www.youtube.com/",
-                "--add-header", "Accept-Language:en-US,en;q=0.9",
-                "--impersonate", "chrome",
-                "--force-ipv4",
-                "--extractor-args", f"youtube:player_client={client}"
-            ]
-        })
+    if cookies_file:  # Only add authenticated methods if we have cookies
+        for client in player_clients:
+            authenticated_methods.append({
+                "name": f"authenticated-{client}",
+                "description": f"Authenticated download using explicit {client} player client",
+                "args": [
+                    youtube_url,
+                    "--cookies", str(cookies_file),  # Use cookies file instead of browser extraction
+                    "-f", "bestaudio[ext=m4a]/bestaudio",
+                    "--no-playlist",
+                    "-x",
+                    "--audio-format", "wav",
+                    "--audio-quality", "0",
+                    "-o", str(temp_path / "audio.%(ext)s"),
+                    "--no-check-certificate",
+                    "--ignore-errors", 
+                    "--socket-timeout", "30",
+                    "--retries", "3",
+                    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "--referer", "https://www.youtube.com/",
+                    "--add-header", "Accept-Language:en-US,en;q=0.9",
+                    "--force-ipv4",
+                    "--extractor-args", f"youtube:player_client={client}"
+                ]
+            })
     
     # Define unauthenticated download methods
     unauthenticated_methods = []
@@ -181,13 +195,12 @@ def download_youtube_audio(youtube_url: str, temp_path: Path) -> Path:
                 "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "--referer", "https://www.youtube.com/",
                 "--add-header", "Accept-Language:en-US,en;q=0.9",
-                "--impersonate", "chrome", 
                 "--force-ipv4",
                 "--extractor-args", f"youtube:player_client={client}"
             ]
         })
     
-    # Combine all methods: authenticated first, then unauthenticated
+    # Combine all methods: authenticated first (if available), then unauthenticated
     all_methods = authenticated_methods + unauthenticated_methods
     
     last_error = None
