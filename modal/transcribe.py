@@ -127,37 +127,111 @@ def transcribe_youtube(
             os._exit(0)
 
 def download_youtube_audio(youtube_url: str, temp_path: Path) -> Path:
-    """Download YouTube audio using yt-dlp"""
-    output_path = temp_path / "audio.%(ext)s"
+    """Download YouTube audio using comprehensive multi-strategy fallback"""
     
-    cmd = [
-        "yt-dlp",
-        youtube_url,
-        "-f", "bestaudio/best",
-        "--no-playlist",
-        "-x",
-        "--audio-format", "wav",
-        "--audio-quality", "0",
-        "-o", str(output_path),
-        "--no-check-certificate",
-        "--ignore-errors",
-        "--socket-timeout", "30",
-        "--retries", "3",
-        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "--referer", "https://www.youtube.com/",
-        "--add-header", "Accept-Language:en-US,en;q=0.9"
-    ]
+    # Define player clients for different strategies
+    player_clients = ["tv", "ios", "web"]
     
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception(f"YouTube download failed: {result.stderr}")
+    # Define authenticated download methods (require cookies)
+    authenticated_methods = []
+    for client in player_clients:
+        authenticated_methods.append({
+            "name": f"authenticated-{client}",
+            "description": f"Authenticated download using explicit {client} player client",
+            "args": [
+                youtube_url,
+                "--cookies-from-browser", "chrome",  # Try to extract cookies from browser
+                "-f", "bestaudio[ext=m4a]/bestaudio",
+                "--no-playlist",
+                "-x",
+                "--audio-format", "wav",
+                "--audio-quality", "0",
+                "-o", str(temp_path / "audio.%(ext)s"),
+                "--no-check-certificate",
+                "--ignore-errors", 
+                "--socket-timeout", "30",
+                "--retries", "3",
+                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "--referer", "https://www.youtube.com/",
+                "--add-header", "Accept-Language:en-US,en;q=0.9",
+                "--impersonate", "chrome",
+                "--force-ipv4",
+                "--extractor-args", f"youtube:player_client={client}"
+            ]
+        })
     
-    # Find the downloaded audio file
-    audio_files = list(temp_path.glob("audio.*"))
-    if not audio_files:
-        raise Exception("No audio file found after download")
+    # Define unauthenticated download methods
+    unauthenticated_methods = []
+    for client in player_clients:
+        unauthenticated_methods.append({
+            "name": f"unauth-{client}",
+            "description": f"Unauthenticated download using explicit {client} player client",
+            "args": [
+                youtube_url,
+                "-f", "bestaudio[ext=m4a]/bestaudio",
+                "--no-playlist",
+                "-x",
+                "--audio-format", "wav", 
+                "--audio-quality", "0",
+                "-o", str(temp_path / "audio.%(ext)s"),
+                "--no-check-certificate",
+                "--ignore-errors",
+                "--socket-timeout", "30",
+                "--retries", "3",
+                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "--referer", "https://www.youtube.com/",
+                "--add-header", "Accept-Language:en-US,en;q=0.9",
+                "--impersonate", "chrome", 
+                "--force-ipv4",
+                "--extractor-args", f"youtube:player_client={client}"
+            ]
+        })
     
-    return audio_files[0]
+    # Combine all methods: authenticated first, then unauthenticated
+    all_methods = authenticated_methods + unauthenticated_methods
+    
+    last_error = None
+    
+    # Try each method in sequence
+    for method in all_methods:
+        try:
+            print(f"[Download] Attempting method: {method['name']} ({method['description']})")
+            
+            result = subprocess.run(
+                ["yt-dlp"] + method["args"], 
+                capture_output=True, 
+                text=True,
+                timeout=120  # 2 minute timeout per attempt
+            )
+            
+            if result.returncode == 0:
+                # Check if file was downloaded successfully
+                audio_files = list(temp_path.glob("audio.*"))
+                if audio_files:
+                    print(f"[Download] ✅ Successfully downloaded using method: {method['name']}")
+                    return audio_files[0]
+            
+            # Log detailed error for this method
+            print(f"[Download] ❌ Method {method['name']} failed:")
+            print(f"   Return code: {result.returncode}")
+            print(f"   stdout: {result.stdout[:500]}...")  # Truncate long output
+            print(f"   stderr: {result.stderr[:500]}...")
+            
+            last_error = result.stderr
+            
+        except subprocess.TimeoutExpired:
+            print(f"[Download] ❌ Method {method['name']} timed out after 2 minutes")
+            last_error = f"Method {method['name']} timed out"
+            continue
+        except Exception as e:
+            print(f"[Download] ❌ Method {method['name']} failed with exception: {str(e)}")
+            last_error = str(e)
+            continue
+    
+    # All methods failed
+    error_message = f"All download methods failed. Last error: {last_error}"
+    print(f"[Download] ❌ {error_message}")
+    raise Exception(f"YouTube download failed: {error_message}")
 
 def separate_vocals(audio_path: Path, temp_path: Path) -> Optional[Path]:
     """Separate vocals using Demucs"""
