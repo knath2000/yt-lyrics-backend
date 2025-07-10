@@ -1,7 +1,7 @@
 import { TranscriptionWorker } from "./worker.js";
 import { cloudinary } from "./cloudinary.js";
 import { pool } from "./db.js";
-import { ModalClient, ModalUnhealthyError } from "./utils/modalClient.js";
+import { ModalClient, ModalJobResult } from "./utils/modalClient.js";
 import { logger } from "./utils/logger.js";
 import { fileURLToPath } from "url";
 import { safeDbQuery } from "./db.js";
@@ -36,7 +36,7 @@ class QueueWorker {
 
     // If Modal credentials present, initialize client
     if (process.env.MODAL_TOKEN_ID && process.env.MODAL_TOKEN_SECRET) {
-      this.modalClient = new ModalClient(process.env.MODAL_TOKEN_ID, process.env.MODAL_TOKEN_SECRET);
+      this.modalClient = new ModalClient();
       console.log("Modal integration enabled – jobs will be offloaded to serverless GPU function");
     }
 
@@ -175,19 +175,27 @@ class QueueWorker {
       if (this.modalClient) {
         // Offload to Modal
         console.log(`🚀 Submitting job ${jobId} to Modal function`);
-        result = await this.modalClient.runTranscription(youtubeUrl, (pct, status) => {
-          jobProgress.set(jobId, { id: jobId, status: "processing", pct, statusMessage: status });
-        });
+        
+        const modalInput = {
+          youtube_url: youtubeUrl,
+          job_id: jobId
+        };
+
+        const modalResult: ModalJobResult = await this.modalClient.submitJob(modalInput);
+        
+        if (modalResult.status === "error") {
+          throw new Error(modalResult.error?.message || "Modal processing failed");
+        }
 
         console.log(`✅ Modal transcription job ${jobId} completed, uploading results to Cloudinary...`);
 
         // Check if Modal already provided a resultUrl (if it uploaded to Cloudinary itself)
-        if (result.resultUrl) {
-          resultUrl = result.resultUrl;
+        if (modalResult.output && modalResult.output.resultUrl) {
+          resultUrl = modalResult.output.resultUrl;
           console.log(`📄 Using Modal-provided result URL: ${resultUrl}`);
         } else {
           // Upload Modal results to Cloudinary ourselves
-          resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, result);
+          resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, modalResult.output);
         }
 
         // Update database with completed status and result URL
@@ -242,15 +250,6 @@ class QueueWorker {
       }, 10000); // 10 seconds grace period
       
     } catch (error) {
-      // If the error is a RunPodUnhealthyError, attempt cancellation & queue purge
-      if (error instanceof ModalUnhealthyError && this.modalClient) {
-        try {
-          await this.modalClient.cancelJob(error.requestId);
-        } catch (cleanupErr) {
-          logger.error(`Post-failure modal cleanup failed: ${(cleanupErr as Error).message}`);
-        }
-      }
-
       // Persist failure to database
       await safeDbQuery(
         'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',

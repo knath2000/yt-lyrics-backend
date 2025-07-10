@@ -1,67 +1,72 @@
-import modal from "modal";
-
-// Simplified error type mirroring previous RunPodUnhealthyError semantics.
-export class ModalUnhealthyError extends Error {
-  constructor(public requestId: string, message?: string) {
-    super(message);
-    this.name = "ModalUnhealthyError";
-  }
+export interface ModalJobResult {
+  id: string;
+  status: "pending" | "running" | "completed" | "error";
+  output?: any;
+  error?: {
+    message: string;
+  };
+  progress?: {
+    pct: number;
+    stage?: string;
+  };
 }
 
-/**
- * Wrapper around Modal JS SDK exposing the same methods our QueueWorker expects
- * (runTranscription, cancelJob, purgeQueue). Only runTranscription is fully
- * implemented; cancel/purge are no-ops because Modal auto-cleans functions.
- */
 export class ModalClient {
-  private client;
-  private fn;
+  private appName: string;
+  private functionName: string;
+  private modalEndpoint: string;
 
   constructor(
-    tokenId: string,
-    tokenSecret: string,
-    {
-      appName = "youtube-transcription", // default Modal app name
-      functionName = "transcribe_youtube", // default exported function name
-    }: { appName?: string; functionName?: string } = {}
+    appName: string = "youtube-transcription",
+    functionName: string = "transcribe_youtube"
   ) {
-    this.client = modal.createClient({ tokenId, tokenSecret });
-    // Fully-qualified function name: <appName>.<functionName>
-    this.fn = this.client.function(`${appName}.${functionName}`);
+    this.appName = appName;
+    this.functionName = functionName;
+    // Modal function endpoint URL pattern (this will need to be updated with the actual deployed URL)
+    this.modalEndpoint = `https://${appName}--${functionName}.modal.run`;
   }
 
-  /**
-   * Kicks off transcription on Modal and waits until completion.
-   * A progress callback is invoked whenever we receive a status update.
-   */
-  async runTranscription(
-    youtubeUrl: string,
-    onProgress?: (pct: number, status: string) => void
-  ): Promise<{ resultUrl?: string; [key: string]: any }> {
-    const run = await this.fn.call({ youtube_url: youtubeUrl });
+  async submitJob(input: any): Promise<ModalJobResult> {
+    try {
+      console.log(`🚀 Calling Modal function at: ${this.modalEndpoint}`);
+      
+      const response = await fetch(this.modalEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(input)
+      });
 
-    // Poll until Modal run finishes
-    while (true) {
-      const status = await this.fn.get(run.id);
-      if (status.status === "Completed") {
-        // Modal functions return their value directly in .output
-        return status.output as any;
+      if (!response.ok) {
+        throw new Error(`Modal function call failed: ${response.status} ${response.statusText}`);
       }
-      if (status.status === "Error") {
-        throw new ModalUnhealthyError(run.id, status.error?.message);
-      }
-      if (onProgress && typeof status.progress?.pct === "number") {
-        onProgress(status.progress.pct, status.progress.stage || status.status);
-      }
-      await new Promise((r) => setTimeout(r, 2000));
+
+      const result = await response.json();
+      
+      return {
+        id: `modal-${Date.now()}`,
+        status: "completed",
+        output: result
+      };
+    } catch (error: any) {
+      console.error('❌ Modal job submission failed:', error);
+      return {
+        id: `modal-error-${Date.now()}`,
+        status: "error",
+        error: {
+          message: error.message || 'Unknown Modal error'
+        }
+      };
     }
   }
 
-  // Modal auto-cancels; keep for interface symmetry
-  async cancelJob(_id: string) {
-    /* no-op */
-  }
-  async purgeQueue() {
-    /* no-op */
+  async getJobStatus(jobId: string): Promise<ModalJobResult> {
+    // Simple status check - since we're using HTTP calls directly,
+    // we assume jobs complete immediately
+    return {
+      id: jobId,
+      status: "completed"
+    };
   }
 } 
