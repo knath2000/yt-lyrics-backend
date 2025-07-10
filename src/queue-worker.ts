@@ -5,6 +5,7 @@ import { ModalClient, ModalUnhealthyError } from "./utils/modalClient.js";
 import { logger } from "./utils/logger.js";
 import { fileURLToPath } from "url";
 import { safeDbQuery } from "./db.js";
+import { initializeCookieJar } from "./setup.js";
 
 interface Job {
   id: string;
@@ -39,12 +40,15 @@ class QueueWorker {
       console.log("Modal integration enabled – jobs will be offloaded to serverless GPU function");
     }
 
+    // Initialize cookie jar (creates cookies.txt from env secret if provided)
+    const cookieFilePath = initializeCookieJar();
+
     this.worker = new TranscriptionWorker(
       openaiApiKey,
       pool, // database pool
       cloudinary, // cloudinary instance
-      "./temp" // work directory (unauthenticated download; no cookies)
-      , undefined // no cookie file path
+      "./temp", // work directory
+      cookieFilePath // provide cookie file path so authenticated yt-dlp strategies can run
     );
 
     if (process.env.DATABASE_URL) {

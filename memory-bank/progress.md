@@ -626,3 +626,25 @@ def handler(event):
 - **Reliability**: Significant issues with YouTube's June 2025 anti-bot measures
 - **Scalability**: Auto-scaling handles traffic spikes
 - **User Experience**: Caching improves repeat request performance when available
+
+### ✅ FIXED: Modal Deployment Error (Missing git) (2025-07-09)
+- **PROBLEM**: Modal image build failed at `pip install --upgrade git+https://github.com/yt-dlp/yt-dlp.git` because `git` was not installed in the container.
+- **SOLUTION**: Updated `modal/transcribe.py` image definition:
+  - Added `git` to `apt_install` list.
+  - Added fallback install command: `pip install --upgrade --force-reinstall git+https://github.com/yt-dlp/yt-dlp.git || pip install --upgrade --force-reinstall yt-dlp`.
+- **RESULT**: Image builds successfully; Modal deploy completes without errors.
+- **IMPACT**: GPU transcription pipeline now deploys on Modal infrastructure.
+
+### ✅ FIXED: Fly.io Backend Crash (Missing jade runtime) (2025-07-10)
+- **PROBLEM**: Fly machines crashed in loop with `Error: Cannot find module 'jade/lib/runtime.js'` from `modal` SDK.
+- **CAUSE**: `jade` package not installed; `modal` SDK requires Jade runtime.
+- **SOLUTION**: Added `jade@1.11.0` to dependencies and regenerated lockfile (`npm install jade --save`).
+- **RESULT**: Fly backend boots successfully without crash; frontend job submission no longer triggers machine restarts.
+- **IMPACT**: Restores stable Fly.io deployment with Modal integration.
+
+### ✅ FIXED: Authenticated YouTube Downloads on Fly (2025-07-10)
+- **PROBLEM**: QueueWorker did not pass a cookie jar to yt-dlp, causing all download strategies to run unauthenticated and fail on Fly.
+- **SOLUTION**: Imported `initializeCookieJar()` in `queue-worker.ts`, generated `cookies.txt`, and passed its path to `TranscriptionWorker`.
+- **REQUIREMENT**: Added Fly secret `YOUTUBE_COOKIES_CONTENT` with exported browser cookies.
+- **RESULT**: Authenticated yt-dlp strategies (`authenticated-ios`, etc.) now run, dramatically improving download success rates.
+- **IMPACT**: Frontend no longer encounters "Sign in to confirm you're not a bot" errors when submitting jobs to Fly backend.

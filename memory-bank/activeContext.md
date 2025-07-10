@@ -8,6 +8,8 @@ _Last updated: 2025-01-15_
 - **WORKER TERMINATION**: Added auto_terminate signal to prevent credit drain from idle RunPod workers
 - **DATABASE SYNC**: RunPod results now properly update Railway database for frontend access
 - **SESSION STATUS**: Ready for testing RunPod → Railway → Frontend flow
+- **✅ FLY BACKEND CRASH FIX**: Added `jade` dependency to resolve Modal SDK runtime error; Fly backend now stable.
+- **✅ YOUTUBE COOKIES**: QueueWorker now initializes cookie jar from `YOUTUBE_COOKIES_CONTENT` Fly secret enabling authenticated yt-dlp strategies on Fly backend.
 
 ## Current Deployment Status
 
@@ -17,12 +19,20 @@ _Last updated: 2025-01-15_
 - **Configuration**: Uses Railway's container platform with automatic scaling
 - **Signal Handling**: Fixed with direct Node.js execution (`node dist/index.js`)
 
-### Deployment Platform – Railway **only**
+### Deployment Platforms – Railway + Fly.io
 We have sunset the Fly.io deployment. The backend is **exclusively** hosted on Railway now.
  - **URL**: `https://yt-lyrics-backend-production.up.railway.app`
  - **Scaling**: Automatic container scaling via Railway settings
  - **Health**: `/health` endpoint used for readiness & liveness probes
  - **Notes**: Any Fly.io references are deprecated and should be ignored.
+
+### Fly.io Deployment
+- **URL**: `https://yt-lyrics-backend.fly.dev`
+- **Status**: 🟢 Active – Modal GPU integration operational
+- **Database**: Uses Railway Postgres via `DATABASE_URL` Fly secret (`fly secrets set DATABASE_URL=...`)
+- **Scaling**: Auto-start/stop machines; 0-1 shared CPU
+- **Health**: `/health` endpoint checks every 30 s
+- **Notes**: Fly deployment re-enabled 2025-07-10 after adding DB env var; resolves previous `ECONNREFUSED 127.0.0.1:5432` crash loop.
 
 ## Recent Session Work (2025-01-15)
 
@@ -124,3 +134,5 @@ The RunPod worker Python/Node.js code should:
 - **TESTING REQUIRED**: RunPod → Railway → Frontend flow needs validation
 - **WORKER TERMINATION**: RunPod worker code needs auto_terminate implementation
 - **MONITORING**: Need to track credit usage and worker lifecycle
+
+- **✅ MODAL DEPLOYMENT**: Fixed container build by adding `git` to apt packages and fallback yt-dlp install; GPU transcription function now deploys successfully.

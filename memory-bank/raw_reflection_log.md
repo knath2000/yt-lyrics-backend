@@ -197,3 +197,68 @@ Improvements_Identified_For_Consolidation:
 - Practice: Always regenerate lockfile after `package.json` edits to satisfy npm ci validation.
 - Diagnostic: Replicating Docker build steps (`npm ci`) locally catches lockfile drift early.
 ---
+---
+Date: 2025-07-09
+TaskRef: "Fix Modal deploy – add git to apt_install & fallback yt-dlp install"
+
+Learnings:
+- Modal images need `git` installed when `pip install git+https://...` is used.
+- Adding `git` via `image.apt_install("git")` resolves `Cannot find command 'git'` errors.
+- Providing a fallback `pip install yt-dlp` after the GitHub install (`command || fallback`) guards against GitHub downtime.
+
+Difficulties:
+- Modal deploy failed during image build at `pip install` step due to missing `git`.
+- Logs were lengthy; required identifying the specific failure line.
+
+Successes:
+- Added `git` to apt packages and fallback install command.
+- Image built successfully and Modal deploy completed.
+
+Improvements_Identified_For_Consolidation:
+- Pattern: Always include `git` in apt packages when installing Python packages directly from GitHub.
+- Pattern: Use `cmd || fallback` in `run_commands` to provide resilient image builds.
+---
+---
+Date: 2025-07-10
+TaskRef: "Fix Fly.io crash – Missing jade runtime for modal JS SDK"
+
+Learnings:
+- `modal` JS SDK requires `jade/lib/runtime.js` at runtime.
+- Fly container crashed with `MODULE_NOT_FOUND` causing endless restart loop.
+- Adding `jade@1.11.0` to backend dependencies resolves the issue.
+- `npm ci` requires package-lock to be in sync; running `npm install jade --save` locally regenerates lockfile.
+
+Difficulties:
+- Error surfaced only in Fly environment; local dev succeeded because node_modules already had jade via transitive dependency.
+- Had to recall previous lockfile mismatch issues to regenerate lockfile properly.
+
+Successes:
+- Installed jade and committed updated `package.json` and `package-lock.json`.
+- Fly deploy will rebuild image with jade, preventing crash.
+
+Improvements_Identified_For_Consolidation:
+- Pattern: When adding new dependency for runtime fix, always update lockfile to satisfy `npm ci`.
+- Pattern: Investigate runtime stack traces to identify missing indirect dependencies.
+---
+---
+Date: 2025-07-10
+TaskRef: "Enable authenticated YouTube downloads on Fly by wiring cookies into QueueWorker"
+
+Learnings:
+- QueueWorker instantiated TranscriptionWorker without cookie file, so authenticated yt-dlp methods were skipped on Fly.
+- initializeCookieJar() writes cookies.txt from YOUTUBE_COOKIES_CONTENT env secret; passing its path enables `authenticated-*` strategies.
+- Added import and call to initializeCookieJar() inside QueueWorker constructor and passed cookieFilePath to TranscriptionWorker.
+- Requires Fly secret `YOUTUBE_COOKIES_CONTENT` set with exported browser cookies in Netscape format.
+
+Difficulties:
+- Error surfaced as unauthenticated download failure; required code search to confirm missing cookie path.
+- Must ensure secret exists in Fly environment; otherwise code still falls back.
+
+Successes:
+- Code edit allows authenticated yt-dlp methods including `unauth-ios` and `authenticated-ios` where cookies available.
+- Expect significant improvement in download success rate on Fly.
+
+Improvements_Identified_For_Consolidation:
+- Pattern: Always pass cookie jar path to workers that rely on yt-dlp authentication when secrets available.
+- Practice: initializeCookieJar() should be invoked in any process that performs downloads.
+---
