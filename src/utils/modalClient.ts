@@ -22,7 +22,7 @@ export class ModalClient {
   ) {
     this.appName = appName;
     this.functionName = functionName;
-    // Modal function endpoint URL pattern (this will need to be updated with the actual deployed URL)
+    // Modal function endpoint URL pattern
     this.modalEndpoint = `https://${appName}--${functionName}.modal.run`;
   }
 
@@ -30,19 +30,37 @@ export class ModalClient {
     try {
       console.log(`🚀 Calling Modal function at: ${this.modalEndpoint}`);
       
+      // Modal functions expect parameters as top-level properties in the JSON body
+      const modalPayload = {
+        youtube_url: input.youtube_url,
+        auto_terminate: true
+      };
+      
       const response = await fetch(this.modalEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(input)
+        body: JSON.stringify(modalPayload)
       });
 
       if (!response.ok) {
-        throw new Error(`Modal function call failed: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Modal function call failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const result = await response.json();
+      
+      // Check if the result contains an error
+      if (result.error) {
+        return {
+          id: `modal-error-${Date.now()}`,
+          status: "error",
+          error: {
+            message: result.error
+          }
+        };
+      }
       
       return {
         id: `modal-${Date.now()}`,
