@@ -22,8 +22,16 @@ export class ModalClient {
   ) {
     this.appName = appName;
     this.functionName = functionName;
-    // Modal function endpoint URL pattern
-    this.modalEndpoint = `https://${appName}--${functionName}.modal.run`;
+
+    // Modal function endpoint URL pattern expects only lowercase letters,
+    // digits and hyphens. Underscores are **not** permitted in DNS labels.
+    // The Modal CLI automatically converts underscores to hyphens when
+    // generating the HTTP endpoint, so we replicate that normalization here
+    // to avoid "modal-http: invalid host header" 400 errors.
+    const safeAppName = appName.toLowerCase().replace(/_/g, "-");
+    const safeFunctionName = functionName.toLowerCase().replace(/_/g, "-");
+
+    this.modalEndpoint = `https://${safeAppName}--${safeFunctionName}.modal.run`;
   }
 
   async submitJob(input: any): Promise<ModalJobResult> {
