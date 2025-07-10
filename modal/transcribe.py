@@ -64,6 +64,8 @@ app = modal.App("youtube-transcription")
         modal.Secret.from_name("cloudinary-config")
     ]
 )
+# Expose as HTTP endpoint so external clients (Fly backend) can POST JSON {"youtube_url": "..."}
+@modal.fastapi_endpoint(method="POST")
 def transcribe_youtube(
     youtube_url: str,
     progress_callback: Optional[Callable[[int, str], None]] = None,
