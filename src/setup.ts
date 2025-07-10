@@ -1,21 +1,28 @@
 import { pool } from "./db.js";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
-export function initializeCookieJar(): string {
-  const cookieFilePath = path.join(process.cwd(), "cookies.txt");
-  
-  // If YOUTUBE_COOKIES_CONTENT env var is provided, (re)write cookies.txt with its
-  // contents. Otherwise, ensure the file exists (create empty placeholder if not).
+export function initializeCookieJar(): string | null {
+  // Always write cookie jar into the OS temp dir so it is ephemeral and never
+  // committed to the repository.  yt-dlp requires a *file* path, so we still
+  // generate one when the secret is provided.
+
   if (process.env.YOUTUBE_COOKIES_CONTENT) {
-    fs.writeFileSync(cookieFilePath, process.env.YOUTUBE_COOKIES_CONTENT);
-    console.log("Populated cookies.txt from YOUTUBE_COOKIES_CONTENT secret");
-  } else if (!fs.existsSync(cookieFilePath)) {
-    fs.writeFileSync(cookieFilePath, "");
-    console.log("Created empty cookies.txt file (no env secret provided)");
+    const cookieFilePath = path.join(os.tmpdir(), "cookies.txt");
+    try {
+      fs.writeFileSync(cookieFilePath, process.env.YOUTUBE_COOKIES_CONTENT);
+      console.log("Populated temporary cookie jar from YOUTUBE_COOKIES_CONTENT secret");
+      return cookieFilePath;
+    } catch (err: any) {
+      console.error("Failed to write temporary cookie file:", err.message || err);
+      return null;
+    }
   }
-  
-  return cookieFilePath;
+
+  // No secret provided → run unauthenticated (caller should handle null)
+  console.log("No YOUTUBE_COOKIES_CONTENT secret found – proceeding without authenticated cookies");
+  return null;
 }
 
 export async function setupDatabase(): Promise<void> {
