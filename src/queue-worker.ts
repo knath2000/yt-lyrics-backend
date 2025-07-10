@@ -34,10 +34,12 @@ class QueueWorker {
       throw new Error("OPENAI_API_KEY environment variable is required");
     }
 
-    // If Modal credentials present, initialize client
+    // If Modal credentials present, initialize client for fallback processing
     if (process.env.MODAL_TOKEN_ID && process.env.MODAL_TOKEN_SECRET) {
       this.modalClient = new ModalClient();
-      console.log("Modal integration enabled – jobs will be offloaded to serverless GPU function");
+      console.log("🔄 Modal integration enabled as fallback – jobs will try local processing first, then Modal if needed");
+    } else {
+      console.log("🏠 Local-only processing – no Modal fallback available");
     }
 
     // Initialize cookie jar (creates cookies.txt from env secret if provided)
@@ -169,46 +171,17 @@ class QueueWorker {
     );
 
     try {
-      let result;
       let resultUrl: string;
 
-      if (this.modalClient) {
-        // Offload to Modal
-        console.log(`🚀 Submitting job ${jobId} to Modal function`);
-        
-        const modalInput = {
-          youtube_url: youtubeUrl,
-          job_id: jobId
-        };
-
-        const modalResult: ModalJobResult = await this.modalClient.submitJob(modalInput);
-        
-        if (modalResult.status === "error") {
-          throw new Error(modalResult.error?.message || "Modal processing failed");
-        }
-
-        console.log(`✅ Modal transcription job ${jobId} completed, uploading results to Cloudinary...`);
-
-        // Check if Modal already provided a resultUrl (if it uploaded to Cloudinary itself)
-        if (modalResult.output && modalResult.output.resultUrl) {
-          resultUrl = modalResult.output.resultUrl;
-          console.log(`📄 Using Modal-provided result URL: ${resultUrl}`);
-        } else {
-          // Upload Modal results to Cloudinary ourselves
-          resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, modalResult.output);
-        }
-
-        // Update database with completed status and result URL
-        await safeDbQuery(
-          'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
-          ['completed', resultUrl, new Date(), jobId]
-        );
-
-        console.log(`✅ Job ${jobId} completed via Modal with result URL: ${resultUrl}`);
-
-      } else {
-        // Local processing
-        result = await this.worker.processJob(
+      // 🔄 TIERED PROCESSING APPROACH:
+      // 1. Try local processing first (cost-effective)
+      // 2. Fallback to Modal if local fails (reliability)
+      
+      console.log(`🏠 Attempting local processing for job ${jobId}...`);
+      
+      try {
+        // Try local processing first
+        const localResult = await this.worker.processJob(
           jobId,
           youtubeUrl,
           (pct: number, status: string) => {
@@ -217,23 +190,67 @@ class QueueWorker {
               id: jobId,
               status: "processing",
               pct,
-              statusMessage: status
+              statusMessage: `[LOCAL] ${status}`
             });
-            console.log(`Job ${jobId}: ${pct}% - ${status}`);
+            console.log(`Job ${jobId}: ${pct}% - [LOCAL] ${status}`);
           },
           openaiModel,
           demucsModel
         );
 
-        resultUrl = result.resultUrl;
-        console.log(`✅ Job ${jobId} completed via local worker with result URL: ${resultUrl}`);
+        resultUrl = localResult.resultUrl;
+        console.log(`✅ Job ${jobId} completed via LOCAL processing with result URL: ${resultUrl}`);
 
-        // Persist completion to database
-        await safeDbQuery(
-          'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
-          ['completed', resultUrl, new Date(), jobId]
-        );
+      } catch (localError) {
+        console.log(`❌ Local processing failed for job ${jobId}: ${(localError as Error).message}`);
+        
+        if (this.modalClient) {
+          console.log(`🚀 Falling back to Modal GPU processing for job ${jobId}...`);
+          
+          // Reset progress to indicate fallback
+          jobProgress.set(jobId, {
+            id: jobId,
+            status: "processing",
+            pct: 5,
+            statusMessage: "[FALLBACK] Retrying with Modal GPU processing..."
+          });
+          
+          const modalInput = {
+            youtube_url: youtubeUrl,
+            job_id: jobId
+          };
+
+          const modalResult: ModalJobResult = await this.modalClient.submitJob(modalInput);
+          
+          if (modalResult.status === "error") {
+            throw new Error(`Modal fallback also failed: ${modalResult.error?.message || "Modal processing failed"}`);
+          }
+
+          console.log(`✅ Modal fallback transcription job ${jobId} completed, uploading results to Cloudinary...`);
+
+          // Check if Modal already provided a resultUrl (if it uploaded to Cloudinary itself)
+          if (modalResult.output && modalResult.output.resultUrl) {
+            resultUrl = modalResult.output.resultUrl;
+            console.log(`📄 Using Modal-provided result URL: ${resultUrl}`);
+          } else {
+            // Upload Modal results to Cloudinary ourselves
+            resultUrl = await this.uploadRunPodResultsToCloudinary(jobId, modalResult.output);
+          }
+
+          console.log(`✅ Job ${jobId} completed via MODAL FALLBACK with result URL: ${resultUrl}`);
+          
+        } else {
+          // No Modal fallback available - re-throw the local error
+          console.log(`❌ No Modal fallback available for job ${jobId} - local processing failed`);
+          throw localError;
+        }
       }
+
+      // Update database with completed status and result URL
+      await safeDbQuery(
+        'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
+        ['completed', resultUrl, new Date(), jobId]
+      );
 
       // Update in-memory tracking for immediate API access
       jobProgress.set(jobId, {
@@ -256,7 +273,7 @@ class QueueWorker {
         ['error', (error as Error).message, new Date(), jobId]
       );
       
-      logger.error(`Job ${jobId} failed: ${(error as Error).message}`);
+      logger.error(`Job ${jobId} failed completely: ${(error as Error).message}`);
       
       // Remove from in-memory store to prevent stale entries
       jobProgress.delete(jobId);
