@@ -6,6 +6,7 @@ import subprocess
 import shutil
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable
+import requests
 
 # Define the Modal image with all transcription dependencies
 image = modal.Image.debian_slim(python_version="3.11").pip_install([
@@ -89,13 +90,36 @@ def transcribe_youtube(
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            # Stage 1: Download YouTube audio (20%)
-            update_progress(10, "Downloading YouTube audio...")
-            audio_path = download_youtube_audio(youtube_url, temp_path)
+            # ------------------------------------------------------------------
+            # Step 1: Cloudinary cache check → download → optional cache upload
+            # ------------------------------------------------------------------
+
+            update_progress(5, "Preparing audio (cache check)...")
+
+            video_id = extract_video_id(youtube_url)
+            audio_path: Path
+
+            if video_id:
+                cached = try_fetch_cached_audio(video_id, temp_path)
+                if cached:
+                    update_progress(10, "Using cached audio from Cloudinary…")
+                    audio_path = cached
+                else:
+                    update_progress(10, "Downloading YouTube audio…")
+                    audio_path = download_youtube_audio(youtube_url, temp_path)
+                    # Upload to cache in background
+                    if video_id:
+                        import threading
+                        threading.Thread(target=upload_audio_to_cache, args=(video_id, audio_path), daemon=True).start()
+            else:
+                # Could not parse video ID; just download normally
+                update_progress(10, "Downloading YouTube audio…")
+                audio_path = download_youtube_audio(youtube_url, temp_path)
+            
             update_progress(20, "Audio download completed")
             
             # Stage 2: Vocal separation with Demucs (40%)
-            update_progress(25, "Separating vocals with Demucs...")
+            update_progress(25, "Separating vocals with Demucs…")
             vocals_path = separate_vocals(audio_path, temp_path)
             update_progress(40, "Vocal separation completed")
             
@@ -126,6 +150,99 @@ def transcribe_youtube(
         if auto_terminate:
             print("Auto-terminating Modal worker...")
             os._exit(0)
+
+# ---------------------------------------------------------------------------
+# Cloudinary audio caching helpers
+# ---------------------------------------------------------------------------
+
+def extract_video_id(youtube_url: str) -> Optional[str]:
+    """Extract the canonical 11-character video ID from various YouTube URL forms."""
+    try:
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(youtube_url)
+
+        # Standard watch?v=ID
+        if parsed.hostname and 'youtube' in parsed.hostname and parsed.path == '/watch':
+            qs = parse_qs(parsed.query)
+            return qs.get('v', [None])[0]
+
+        # Short youtu.be/ID
+        if parsed.hostname == 'youtu.be':
+            return parsed.path.lstrip('/')
+
+        # Shorts
+        if parsed.path.startswith('/shorts/'):
+            return parsed.path.split('/')[2]
+    except Exception:
+        pass
+    return None
+
+
+def cloudinary_configured() -> bool:
+    return all(k in os.environ for k in (
+        "CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+    ))
+
+
+def cloudinary_init():
+    import cloudinary
+    cloudinary.config(
+        cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
+        api_key=os.environ["CLOUDINARY_API_KEY"],
+        api_secret=os.environ["CLOUDINARY_API_SECRET"],
+        secure=True,
+    )
+
+
+def try_fetch_cached_audio(video_id: str, temp_dir: Path) -> Optional[Path]:
+    """Attempt to fetch previously-cached audio from Cloudinary; returns local Path or None."""
+    if not cloudinary_configured():
+        return None
+    try:
+        cloudinary_init()
+        import cloudinary.api  # type: ignore
+
+        public_id = f"audio/{video_id}/bestaudio_mp3"
+        resource = cloudinary.api.resource(public_id, resource_type="video")
+        secure_url = resource.get("secure_url")
+        if not secure_url:
+            return None
+
+        response = requests.get(secure_url, timeout=30)
+        if response.status_code != 200:
+            print(f"[Cache] Failed to download cached file: HTTP {response.status_code}")
+            return None
+
+        local_path = temp_dir / f"{video_id}.mp3"
+        with open(local_path, "wb") as f:
+            f.write(response.content)
+        print(f"[Cache] Retrieved cached audio for {video_id} from Cloudinary")
+        return local_path
+    except Exception as err:
+        if "Resource not found" not in str(err):
+            print(f"[Cache] Error fetching cache for {video_id}: {err}")
+        return None
+
+
+def upload_audio_to_cache(video_id: str, local_file: Path):
+    """Upload freshly downloaded audio to Cloudinary asynchronously."""
+    if not cloudinary_configured():
+        return
+    try:
+        cloudinary_init()
+        import cloudinary.uploader  # type: ignore
+        cloudinary.uploader.upload(
+            str(local_file),
+            resource_type="video",
+            public_id=f"audio/{video_id}/bestaudio_mp3",
+            overwrite=True,
+            tags=["yt_audio_cache", f"video:{video_id}"],
+        )
+        print(f"[Cache] Uploaded audio for {video_id} to Cloudinary cache")
+    except Exception as err:
+        print(f"[Cache] Failed to upload cache for {video_id}: {err}")
 
 def download_youtube_audio(youtube_url: str, temp_path: Path) -> Path:
     """Download YouTube audio using comprehensive multi-strategy fallback"""
