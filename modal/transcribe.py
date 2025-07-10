@@ -31,6 +31,8 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install([
     
     # Cloud storage
     "cloudinary>=1.36.0",
+    # Required for web endpoints via @modal.fastapi_endpoint
+    "fastapi[standard]>=0.115.0",
     
     # Utilities
     "requests>=2.31.0",
@@ -64,27 +66,19 @@ app = modal.App("youtube-transcription")
         modal.Secret.from_name("cloudinary-config")
     ]
 )
-# Expose as HTTP endpoint so external clients (Fly backend) can POST JSON {"youtube_url": "..."}
+# Expose as POST endpoint: expects JSON { "youtube_url": "..." }
 @modal.fastapi_endpoint(method="POST")
 def transcribe_youtube(
-    youtube_url: str,
-    progress_callback: Optional[Callable[[int, str], None]] = None,
-    auto_terminate: bool = True
+    data: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """
-    Complete YouTube transcription pipeline on Modal GPU infrastructure.
-    
-    Args:
-        youtube_url: YouTube video URL to transcribe
-        progress_callback: Optional callback for progress updates
-        auto_terminate: Whether to terminate the worker after completion
-    
-    Returns:
-        Dictionary containing transcription results with words, SRT, and plain text
-    """
+
+    youtube_url = data.get("youtube_url")
+    auto_terminate = data.get("auto_terminate", True)
+    progress_callback: Optional[Callable[[int, str], None]] = None
     
     def update_progress(pct: int, message: str):
         """Update progress with callback if provided"""
+        # Progress callback currently unused for web endpoint but kept for potential SDK calls
         if progress_callback:
             progress_callback(pct, message)
         print(f"[{pct}%] {message}")
