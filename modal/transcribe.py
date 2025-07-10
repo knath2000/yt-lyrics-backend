@@ -371,11 +371,11 @@ def separate_vocals(audio_path: Path, temp_path: Path) -> Optional[Path]:
         cmd = [
             "demucs",
             "--two-stems", "vocals",
-            "--model", "htdemucs",
-            "--segment", "10",
-            "--device", "cuda",
-            "--out", str(output_dir),
-            str(audio_path)
+            "-n", "htdemucs",           # Model name flag changed in Demucs v4
+            "--segment", "10",           # Integer segment length (sec)
+            "-d", "cuda",                # GPU device (Modal A10G)
+            "-o", str(output_dir),        # Output directory
+            str(audio_path)                # Input file (last positional)
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -451,7 +451,7 @@ def generate_final_results(aligned_data: Dict[str, Any], youtube_url: str) -> Di
     
     segments = aligned_data.get("segments", [])
     for segment in segments:
-        segment_words = segment.get("words", [])
+        segment_words = segment.get("words") or []
         for word_data in segment_words:
             words.append({
                 "word": word_data.get("word", "").strip(),
