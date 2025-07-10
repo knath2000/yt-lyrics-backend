@@ -24,18 +24,14 @@ export class ModalClient {
     this.functionName = functionName;
 
     // Modal endpoint URL format: https://<workspace>--<app-name>-<function-name>.modal.run
-    // The workspace should be the actual Modal workspace (knath2000), not the app name
-
+    // Based on Modal docs, the format should be workspace--app-function.modal.run
+    
+    const workspace = "knath2000";
     const safeAppName = appName.toLowerCase().replace(/_/g, "-");
     const safeFunctionName = functionName.toLowerCase().replace(/_/g, "-");
-
-    // Use the correct workspace name - knath2000, not the app name
-    const workspace = "knath2000";
     
-    // Combine app + function into single label part per Modal docs
-    const label = `${safeAppName}-${safeFunctionName}`;
-
-    this.modalEndpoint = `https://${workspace}--${label}.modal.run`;
+    // Modal URL format: https://workspace--app-function.modal.run
+    this.modalEndpoint = `https://${workspace}--${safeAppName}-${safeFunctionName}.modal.run`;
   }
 
   async submitJob(input: any): Promise<ModalJobResult> {

@@ -27,7 +27,10 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install([
     
     # Utilities
     "requests>=2.31.0",
-    "python-dotenv>=1.0.0"
+    "python-dotenv>=1.0.0",
+    
+    # FastAPI for web endpoints
+    "fastapi[standard]>=0.100.0"
 ]).apt_install([
     # System dependencies for audio processing
     "ffmpeg",

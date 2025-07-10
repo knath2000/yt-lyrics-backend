@@ -20,6 +20,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install([
     "yt-dlp>=2024.12.13",      # YouTube download
     "cloudinary>=1.36.0",      # Result storage
     "requests>=2.31.0",        # HTTP requests
+    "fastapi[standard]>=0.100.0",  # Required for web endpoints
 ]).apt_install([
     "git",           # Required for yt-dlp GitHub install
     "ffmpeg",        # Audio processing
@@ -345,37 +346,35 @@ def upload_to_cloudinary(file_path: Path, public_id: str, resource_type: str = "
     gpu="A10G",
     memory=16384,  # 16GB RAM
     timeout=1800,  # 30 minute timeout
-    retries=modal.Retries(
-        max_retries=3,
-        backoff_coefficient=2.0,
-        initial_delay=5.0
-    ),
     secrets=[
-        modal.Secret.from_name("cloudinary-secrets"),
-        modal.Secret.from_name("openai-secret")
+        modal.Secret.from_name("cloudinary-config"),
+        modal.Secret.from_name("openai-api-key")
     ]
 )
-def transcribe_youtube(
-    youtube_url: str, 
-    job_id: str = None,
-    audio_url: str = None,
-    fly_download_error: str = None,
-    progress_callback: Optional[Callable] = None
-) -> Dict[str, Any]:
+@modal.fastapi_endpoint(method="POST")
+def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
     """
     CORRECT ARCHITECTURE: Fly.io downloads first, Modal processes
     - If audio_url provided: Fly.io successfully downloaded, use that audio
     - If audio_url is None: Fly.io download failed, Modal attempts download as fallback
     """
     
+    # Extract parameters from request data
+    youtube_url = request_data.get("youtube_url")
+    job_id = request_data.get("job_id")
+    audio_url = request_data.get("audio_url")
+    fly_download_error = request_data.get("fly_download_error")
+    
+    if not youtube_url:
+        return {
+            "success": False,
+            "error": "youtube_url is required"
+        }
+    
     def update_progress(percentage: int, message: str):
         """Update progress with callback"""
         print(f"[{percentage}%] {message}")
-        if progress_callback:
-            try:
-                progress_callback(percentage, message)
-            except Exception as e:
-                print(f"Progress callback error: {e}")
+        # Note: No callback support for web endpoints
     
     try:
         # Extract video ID for caching and results
