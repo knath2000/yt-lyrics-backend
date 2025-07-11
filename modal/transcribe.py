@@ -4,6 +4,8 @@ import json
 import tempfile
 import subprocess
 import shutil
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List
 import requests
@@ -20,6 +22,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install([
     "yt-dlp>=2024.12.13",      # YouTube download
     "cloudinary>=1.36.0",      # Result storage
     "requests>=2.31.0",        # HTTP requests
+    "groq>=0.4.1",             # Ultra-fast Groq Whisper API
     "fastapi[standard]>=0.100.0",  # Required for web endpoints
 ]).apt_install([
     "git",           # Required for yt-dlp GitHub install
@@ -113,6 +116,79 @@ def separate_vocals_conservative(audio_path: Path, temp_path: Path) -> Optional[
     except Exception as e:
         print(f"Demucs error: {e}")
         return None
+
+def transcribe_with_groq(audio_path: Path, api_key: str) -> Dict[str, Any]:
+    """Ultra-fast transcription using Groq Whisper Large-v3 Turbo"""
+    try:
+        from groq import Groq
+        
+        # Initialize Groq client with API key from environment
+        client = Groq(api_key=api_key)
+        
+        print(f"Transcribing with Groq Whisper Large-v3 Turbo: {audio_path}")
+        
+        # Read audio file
+        with open(audio_path, "rb") as file:
+            # Create transcription with Groq's ultra-fast Whisper
+            transcription = client.audio.transcriptions.create(
+                file=(audio_path.name, file.read()),
+                model="whisper-large-v3-turbo",  # Ultra-fast model
+                response_format="verbose_json",
+                timestamp_granularities=["word"]
+            )
+        
+        # Convert Groq response to our expected format
+        segments = []
+        if hasattr(transcription, 'words') and transcription.words:
+            # Group words into segments (similar to Whisper segments)
+            current_segment = []
+            segment_start = None
+            segment_id = 0
+            
+            for i, word in enumerate(transcription.words):
+                if segment_start is None:
+                    segment_start = word.start
+                
+                current_segment.append(word)
+                
+                # Create segment every 10 words or at end
+                if len(current_segment) >= 10 or i == len(transcription.words) - 1:
+                    segment_text = " ".join([w.word for w in current_segment])
+                    segment_end = current_segment[-1].end
+                    
+                    segments.append({
+                        "id": segment_id,
+                        "start": segment_start,
+                        "end": segment_end,
+                        "text": segment_text,
+                        "words": [
+                            {
+                                "word": w.word,
+                                "start": w.start,
+                                "end": w.end,
+                                "probability": 0.9  # Groq doesn't provide probability
+                            } for w in current_segment
+                        ]
+                    })
+                    
+                    current_segment = []
+                    segment_start = None
+                    segment_id += 1
+        
+        result = {
+            "segments": segments,
+            "language": getattr(transcription, 'language', 'en'),
+            "language_probability": 0.95,  # Groq doesn't provide this
+            "duration": transcription.words[-1].end if transcription.words else 0,
+            "text": transcription.text
+        }
+        
+        print(f"Groq transcription completed: {len(segments)} segments")
+        return result
+        
+    except Exception as e:
+        print(f"Groq transcription error: {e}")
+        raise
 
 def transcribe_with_faster_whisper(audio_path: Path, model_size: str = "large-v3") -> Dict[str, Any]:
     """Simplified transcription using Faster-Whisper"""
@@ -348,7 +424,8 @@ def upload_to_cloudinary(file_path: Path, public_id: str, resource_type: str = "
     timeout=1800,  # 30 minute timeout
     secrets=[
         modal.Secret.from_name("cloudinary-config"),
-        modal.Secret.from_name("openai-api-key")
+        modal.Secret.from_name("openai-api-key"),
+        modal.Secret.from_name("groq-api-key")
     ]
 )
 @modal.fastapi_endpoint(method="POST")
@@ -371,10 +448,29 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
             "error": "youtube_url is required"
         }
     
-    def update_progress(percentage: int, message: str):
-        """Update progress with callback"""
-        print(f"[{percentage}%] {message}")
-        # Note: No callback support for web endpoints
+    # Enhanced progress tracking with detailed logging
+    start_time = time.time()
+    progress_log = []
+    
+    def update_progress(percentage: int, message: str, stage: str = "processing"):
+        """Enhanced progress tracking with detailed logging"""
+        current_time = time.time()
+        timestamp = datetime.now().isoformat()
+        duration = current_time - start_time
+        
+        progress_entry = {
+            "status": "in_progress",
+            "percentage": percentage,
+            "message": message,
+            "timestamp": timestamp,
+            "duration": round(duration, 2),
+            "stage": stage
+        }
+        
+        progress_log.append(progress_entry)
+        print(f"[{percentage}%] {stage}: {message} (t={duration:.1f}s)")
+        
+        # Note: For future enhancement, could send progress updates via webhooks
     
     try:
         # Extract video ID for caching and results
@@ -500,18 +596,36 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
                 transcription_audio = audio_path
                 update_progress(40, "[Modal] Using original audio")
             
-            # STEP 3: Transcription with Faster-Whisper
-            update_progress(45, "[Modal] Transcribing audio with Faster-Whisper...")
-            transcription_result = transcribe_with_faster_whisper(transcription_audio)
-            update_progress(70, "[Modal] Transcription completed")
+            # STEP 3: Enhanced Transcription with Groq (if available) or Faster-Whisper fallback
+            update_progress(45, "[Modal] Starting transcription...", "transcription")
+            
+            # Try Groq first for ultra-fast transcription
+            groq_api_key = os.environ.get("GROQ_API_KEY")
+            transcription_result = None
+            processing_method = "faster_whisper"  # Default fallback
+            
+            if groq_api_key:
+                try:
+                    update_progress(50, "[Modal] Attempting Groq Whisper Large-v3 Turbo...", "transcription")
+                    transcription_result = transcribe_with_groq(transcription_audio, groq_api_key)
+                    processing_method = "groq_whisper"
+                    update_progress(65, "[Modal] Groq transcription completed", "transcription")
+                except Exception as groq_error:
+                    print(f"Groq transcription failed: {groq_error}, falling back to Faster-Whisper")
+                    update_progress(50, "[Modal] Groq failed, using Faster-Whisper fallback...", "transcription")
+            
+            # Fallback to Faster-Whisper if Groq failed or unavailable
+            if not transcription_result:
+                transcription_result = transcribe_with_faster_whisper(transcription_audio)
+                update_progress(65, "[Modal] Faster-Whisper transcription completed", "transcription")
             
             # STEP 4: Word alignment with WhisperX
-            update_progress(75, "[Modal] Aligning word timestamps with WhisperX...")
+            update_progress(70, "[Modal] Aligning word timestamps with WhisperX...", "alignment")
             aligned_result = align_with_whisperx(transcription_audio, transcription_result, temp_path)
-            update_progress(90, "[Modal] Word alignment completed")
+            update_progress(85, "[Modal] Word alignment completed", "alignment")
             
             # STEP 5: Generate final results
-            update_progress(95, "[Modal] Generating final results...")
+            update_progress(90, "[Modal] Generating final results...", "finalization")
             final_results = generate_final_results(aligned_result, youtube_url)
             
             # STEP 6: Upload results to Cloudinary
@@ -528,18 +642,46 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
             # Clean up GPU memory
             cleanup_gpu_memory()
             
-            update_progress(100, "[Modal] Transcription completed successfully")
+            # Calculate total processing time
+            total_processing_time = time.time() - start_time
+            
+            # Add completion entry to progress log
+            progress_log.append({
+                "status": "completed",
+                "percentage": 100,
+                "message": "Transcription completed successfully",
+                "timestamp": datetime.now().isoformat(),
+                "duration": round(total_processing_time, 2),
+                "stage": "finalization"
+            })
+            
+            update_progress(100, "[Modal] Transcription completed successfully", "finalization")
             
             return {
                 "success": True,
-                "results_url": results_url,
+                "result_url": results_url,  # Match the expected field name
+                "results_url": results_url,  # Keep for compatibility
                 "video_id": video_id,
-                "metadata": final_results["metadata"],
-                "processing_method": "fly_download" if audio_url else "modal_fallback_download"
+                "processing_method": processing_method,
+                "processing_time_seconds": round(total_processing_time, 2),
+                "progress_log": progress_log,
+                "metadata": final_results["metadata"]
             }
             
     except Exception as e:
-        update_progress(0, f"[Modal] Transcription failed: {str(e)}")
+        # Add error entry to progress log
+        error_time = time.time() - start_time if 'start_time' in locals() else 0
+        if 'progress_log' in locals():
+            progress_log.append({
+                "status": "error",
+                "percentage": 0,
+                "message": f"Transcription failed: {str(e)}",
+                "timestamp": datetime.now().isoformat(),
+                "duration": round(error_time, 2),
+                "stage": "error"
+            })
+        
+        update_progress(0, f"[Modal] Transcription failed: {str(e)}", "error")
         print(f"[Modal] Transcription error: {e}")
         import traceback
         traceback.print_exc()
@@ -550,7 +692,9 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
         return {
             "success": False,
             "error": str(e),
-            "video_id": video_id if 'video_id' in locals() else None
+            "video_id": video_id if 'video_id' in locals() else None,
+            "processing_time_seconds": round(error_time, 2),
+            "progress_log": progress_log if 'progress_log' in locals() else []
         }
 
 # Test function for local development

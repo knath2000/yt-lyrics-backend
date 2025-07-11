@@ -9,6 +9,17 @@ export interface ModalJobResult {
     pct: number;
     stage?: string;
   };
+  success?: boolean;
+  result?: {
+    result_url: string;
+    processing_method?: string;
+  };
+}
+
+export interface ModalProgressUpdate {
+  percentage: number;
+  message: string;
+  stage?: string;
 }
 
 export class ModalClient {
@@ -34,7 +45,7 @@ export class ModalClient {
     this.modalEndpoint = `https://${workspace}--${safeAppName}-${safeFunctionName}.modal.run`;
   }
 
-  async submitJob(input: any): Promise<ModalJobResult> {
+  async submitJob(input: any, progressCallback?: (update: ModalProgressUpdate) => void): Promise<ModalJobResult> {
     try {
       console.log(`🚀 Calling Modal function at: ${this.modalEndpoint}`);
       
@@ -64,6 +75,7 @@ export class ModalClient {
         return {
           id: `modal-error-${Date.now()}`,
           status: "error",
+          success: false,
           error: {
             message: result.error
           }
@@ -73,13 +85,19 @@ export class ModalClient {
       return {
         id: `modal-${Date.now()}`,
         status: "completed",
-        output: result
+        success: true,
+        output: result,
+        result: {
+          result_url: result.result_url || result.results_url,
+          processing_method: result.processing_method
+        }
       };
     } catch (error: any) {
       console.error('❌ Modal job submission failed:', error);
       return {
         id: `modal-error-${Date.now()}`,
         status: "error",
+        success: false,
         error: {
           message: error.message || 'Unknown Modal error'
         }

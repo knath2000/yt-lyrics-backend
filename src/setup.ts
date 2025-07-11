@@ -99,6 +99,35 @@ export async function setupDatabase(): Promise<void> {
       ALTER TABLE jobs ADD COLUMN IF NOT EXISTS openai_model TEXT;
     `);
 
+    // Add enhanced progress tracking columns
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS pct INTEGER DEFAULT 0;
+    `);
+    
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status_message TEXT;
+    `);
+    
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS current_stage TEXT;
+    `);
+    
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS processing_method TEXT;
+    `);
+    
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS processing_time_seconds REAL;
+    `);
+    
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS video_id TEXT;
+    `);
+    
+    await pool.query(`
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS progress_log JSONB DEFAULT '[]'::jsonb;
+    `);
+
     console.log("Database setup completed successfully");
   } catch (error) {
     console.error("Database setup failed:", error);

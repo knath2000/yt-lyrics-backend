@@ -5,7 +5,7 @@ import createJobsRouter from "./routes/jobs.js";
 import createCorrectionsRouter from "./routes/corrections.js";
 import { initializeCookieJar, setupDatabase } from "./setup.js";
 import { TranscriptionWorker } from "./worker.js";
-import QueueWorker from "./queue-worker.js";
+import { QueueWorker } from "./queue-worker.js";
 import { Server } from "http";
 import { cloudinary } from "./cloudinary.js";
 import { pool } from "./db.js";
@@ -64,13 +64,11 @@ const worker = new TranscriptionWorker(
   !isProduction // Disable memory-safe mode in production (false = performance mode)
 );
 
-// Create and use the jobs router, injecting the worker, database pool, and cloudinary
-app.use("/api/jobs", createJobsRouter(worker, cloudinary));
-// Route for ingesting corrected transcripts
-app.use("/api/corrections", createCorrectionsRouter(pool));
-
 // Initialize queue worker
 let queueWorker: QueueWorker | null = null;
+
+// Route for ingesting corrected transcripts
+app.use("/api/corrections", createCorrectionsRouter(pool));
 
 // 🆕 GRACEFUL SHUTDOWN STATE
 let isShuttingDown = false;
@@ -180,14 +178,22 @@ async function startServer() {
   try {
     console.log("🔄 Starting queue worker...");
     queueWorker = new QueueWorker();
+    
+    // Now that QueueWorker is initialized, set up the jobs router
+    app.use("/api/jobs", createJobsRouter(worker, cloudinary, queueWorker));
+    console.log("✅ Jobs router configured with QueueWorker");
+    
     // Start queue worker in background (don't await)
-    queueWorker.start().catch(error => {
+    queueWorker.start().catch((error: any) => {
       console.error("❌ Queue worker failed:", error);
     });
     console.log("✅ Queue worker started");
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Failed to start queue worker:", error);
     // Don't fail the entire startup if queue worker fails
+    // Set up jobs router without QueueWorker as fallback
+    app.use("/api/jobs", createJobsRouter(worker, cloudinary));
+    console.log("✅ Jobs router configured without QueueWorker (fallback)");
   }
   
   return server;

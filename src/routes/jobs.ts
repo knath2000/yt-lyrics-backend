@@ -5,7 +5,7 @@ import { readFileSync } from "fs"; // Import readFileSync directly
 import { TranscriptionWorker } from "../worker.js";
 import { cloudinary } from "../cloudinary.js";
 import { pool } from "../db.js";
-import { jobProgress } from "../queue-worker.js"; // Import shared progress map
+import type { QueueWorker } from "../queue-worker.js";
 
 interface Job {
   id: string;
@@ -16,12 +16,37 @@ interface Job {
   statusMessage?: string;
 }
 
+interface ProcessingStep {
+  status: 'pending' | 'in_progress' | 'completed' | 'error';
+  percentage: number;
+  message: string;
+  timestamp: string;
+  duration?: number;
+}
+
+interface JobProgressResponse {
+  status: string;
+  pct: number;
+  statusMessage?: string;
+  error?: string;
+  currentStage?: string;
+  processingMethod?: string;
+  estimatedTimeRemaining?: number;
+}
+
+interface JobStepsResponse {
+  steps: ProcessingStep[];
+  currentStage?: string;
+  estimatedTimeRemaining?: number;
+}
+
 // Export a function that creates and returns the router,
-// accepting the worker and cloudinary as dependencies.
+// accepting the worker, cloudinary, and queueWorker as dependencies.
 // Database pool is imported from centralized db.ts module.
 export default function createJobsRouter(
   worker: TranscriptionWorker,
-  cloudinaryInstance: typeof cloudinary
+  cloudinaryInstance: typeof cloudinary,
+  queueWorker?: QueueWorker
 ): Router {
   const router = Router();
 
@@ -59,7 +84,7 @@ export default function createJobsRouter(
           : "gpt-4o-mini-transcribe"; // Default regular quality using GPT-4o-mini
 
     const job: Job = { id, status: "queued", pct: 0 };
-    jobProgress.set(id, job);
+    // Job tracking is now handled by QueueWorker
 
     // Initialize job in database
     await pool.query(
@@ -87,7 +112,7 @@ export default function createJobsRouter(
   // GET /api/jobs/:id
   router.get("/:id", async (req, res) => {
     // Check in-memory progress first for real-time updates
-    const progressJob = jobProgress.get(req.params.id);
+    const progressJob = queueWorker?.getJobProgress(req.params.id);
     if (progressJob) {
       return res.json({
         status: progressJob.status,
@@ -123,43 +148,7 @@ export default function createJobsRouter(
     }
   });
 
-  // GET /api/jobs/:id/progress - Real-time progress endpoint
-  router.get("/:id/progress", async (req, res) => {
-    // Check in-memory progress for real-time updates
-    const progressJob = jobProgress.get(req.params.id);
-    if (progressJob) {
-      return res.json({
-        status: progressJob.status,
-        pct: progressJob.pct,
-        statusMessage: progressJob.statusMessage,
-        error: progressJob.error
-      });
-    }
 
-    // Fall back to database for completed/queued jobs
-    try {
-      const result = await pool.query(
-        'SELECT id, status, error_message FROM jobs WHERE id = $1',
-        [req.params.id]
-      );
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: "Job not found" });
-      }
-
-      const dbJob = result.rows[0];
-      res.json({
-        status: dbJob.status,
-        pct: dbJob.status === 'completed' ? 100 : 0,
-        statusMessage: dbJob.status === 'completed' ? 'Complete!' :
-                      dbJob.status === 'queued' ? 'Waiting in queue...' : 'Processing...',
-        error: dbJob.error_message
-      });
-    } catch (error) {
-      console.error('Database error:', error);
-      res.status(500).json({ error: "Database error" });
-    }
-  });
 
   // GET /api/jobs/:id/result
   router.get("/:id/result", async (req, res) => {
@@ -189,57 +178,102 @@ export default function createJobsRouter(
     }
   });
 
-  // Async job processing function
-  async function processJobAsync(jobId: string, youtubeUrl: string, workerInstance: TranscriptionWorker) {
-    const job = jobProgress.get(jobId);
-    if (!job) return;
-
-    try {
-      job.status = "processing";
-      job.statusMessage = "Starting...";
-      
-      // Update database status
-      await pool.query(
-        'UPDATE jobs SET status = $1, updated_at = $2 WHERE id = $3',
-        ['processing', new Date(), jobId]
-      );
-      
-      const result = await workerInstance.processJob( // Use injected worker
-        jobId,
-        youtubeUrl,
-        (pct: number, status: string) => {
-          job.pct = pct;
-          job.statusMessage = status;
-          console.log(`Job ${jobId}: ${pct}% - ${status}`);
-        },
-        undefined, // openaiModel (not used in this deprecated path)
-        undefined  // demucsModel
-      );
-
-      job.status = "done";
-      job.pct = 100;
-      job.resultUrl = result.resultUrl;
-      job.statusMessage = "Complete!";
-      
-      console.log(`Job ${jobId} completed successfully`);
-      
-      // Remove from in-memory store since it's now in database
-      jobProgress.delete(jobId);
-      
-    } catch (error) {
-      job.status = "error";
-      job.error = (error as Error).message;
-      job.statusMessage = "Failed";
-      
-      // Update database with error
-      await pool.query(
-        'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
-        ['error', (error as Error).message, new Date(), jobId]
-      );
-      
-      console.error(`Job ${jobId} failed:`, error);
-    }
+  // Helper function to calculate estimated time remaining
+  function calculateEstimatedTime(currentPct: number, processingMethod?: string): number {
+    if (currentPct >= 95) return 0;
+    
+    // Base estimates by processing method (in seconds)
+    const baseEstimates = {
+      'groq_whisper': 5,      // Very fast with Groq
+      'modal_gpu': 60,        // Modal GPU processing
+      'local_cpu': 180        // Local CPU fallback
+    };
+    
+    const baseTime = baseEstimates[processingMethod as keyof typeof baseEstimates] || 60;
+    const remainingPct = 100 - currentPct;
+    
+    return Math.round((remainingPct / 100) * baseTime);
   }
+
+  // GET /api/jobs/:id/steps - Detailed step tracking endpoint
+  router.get("/:id/steps", async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT pct, status, current_stage, processing_method, progress_log 
+         FROM jobs WHERE id = $1`,
+        [req.params.id]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      const job = result.rows[0];
+      const steps: ProcessingStep[] = job.progress_log || [];
+      const estimatedTime = calculateEstimatedTime(job.pct, job.processing_method);
+
+      const response: JobStepsResponse = {
+        steps,
+        currentStage: job.current_stage,
+        estimatedTimeRemaining: estimatedTime
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ error: "Database error" });
+    }
+  });
+
+  // Enhanced progress endpoint with detailed metadata
+  router.get("/:id/progress", async (req, res) => {
+    // Check in-memory progress for real-time updates
+    const progressJob = queueWorker?.getJobProgress(req.params.id);
+    if (progressJob) {
+      const response: JobProgressResponse = {
+        status: progressJob.status,
+        pct: progressJob.pct,
+        statusMessage: progressJob.statusMessage,
+        error: progressJob.error
+      };
+      return res.json(response);
+    }
+
+    // Fall back to database for completed/queued jobs
+    try {
+      const result = await pool.query(
+        `SELECT status, pct, status_message, error, current_stage, 
+                processing_method, processing_time_seconds 
+         FROM jobs WHERE id = $1`,
+        [req.params.id]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      const job = result.rows[0];
+      const estimatedTime = calculateEstimatedTime(job.pct, job.processing_method);
+
+      const response: JobProgressResponse = {
+        status: job.status,
+        pct: job.pct || 0,
+        statusMessage: job.status_message || (
+          job.status === 'completed' ? 'Complete!' :
+          job.status === 'queued' ? 'Waiting in queue...' : 'Processing...'
+        ),
+        error: job.error,
+        currentStage: job.current_stage,
+        processingMethod: job.processing_method,
+        estimatedTimeRemaining: estimatedTime
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ error: "Database error" });
+    }
+  });
 
   return router;
 } 

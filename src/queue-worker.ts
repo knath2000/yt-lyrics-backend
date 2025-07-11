@@ -16,6 +16,25 @@ interface Job {
   statusMessage?: string;
 }
 
+// Enhanced processing step interface for detailed tracking
+interface ProcessingStep {
+  status: 'pending' | 'in_progress' | 'completed' | 'error';
+  percentage: number;
+  message: string;
+  timestamp: string;
+  duration?: number; // in seconds
+}
+
+// Processing stage constants for consistent tracking
+const PROCESSING_STAGES = {
+  INITIALIZATION: 'initialization',
+  DOWNLOAD: 'download', 
+  VOCAL_SEPARATION: 'vocal_separation',
+  TRANSCRIPTION: 'transcription',
+  ALIGNMENT: 'alignment',
+  FINALIZATION: 'finalization'
+} as const;
+
 // In-memory job progress tracking (for real-time updates)
 const jobProgress = new Map<string, Job>();
 
@@ -61,6 +80,54 @@ class QueueWorker {
       }
     } else {
       console.warn('⚠️ No DATABASE_URL env var found in QueueWorker');
+    }
+  }
+
+  /**
+   * Update job progress with detailed step tracking
+   */
+  private async updateJobProgress(
+    jobId: string, 
+    stage: string, 
+    percentage: number, 
+    message: string, 
+    status: 'processing' | 'done' | 'error' = 'processing'
+  ): Promise<void> {
+    const timestamp = new Date().toISOString();
+    
+    // Create processing step
+    const step: ProcessingStep = {
+      status: status === 'processing' ? 'in_progress' : (status === 'done' ? 'completed' : 'error'),
+      percentage,
+      message,
+      timestamp
+    };
+
+    // Update in-memory progress
+    jobProgress.set(jobId, {
+      id: jobId,
+      status,
+      pct: percentage,
+      statusMessage: message
+    });
+
+    // Update database with comprehensive metadata
+    try {
+      await safeDbQuery(
+        `UPDATE jobs SET 
+          status = $1, 
+          pct = $2, 
+          status_message = $3, 
+          updated_at = $4,
+          current_stage = $5,
+          progress_log = COALESCE(progress_log, '[]'::jsonb) || $6::jsonb
+        WHERE id = $7`,
+        [status, percentage, message, new Date(), stage, JSON.stringify([step]), jobId]
+      );
+      
+      console.log(`📊 [${jobId}] ${stage}: ${percentage}% - ${message}`);
+    } catch (error) {
+      console.error(`❌ Failed to update job progress for ${jobId}:`, error);
     }
   }
 
@@ -159,19 +226,8 @@ class QueueWorker {
 
     console.log(`📋 Processing job ${jobId} for URL: ${youtubeUrl}`);
 
-    // Update job status to processing
-    await safeDbQuery(
-      'UPDATE jobs SET status = $1, updated_at = $2 WHERE id = $3',
-      ['processing', new Date(), jobId]
-    );
-
-    // Update in-memory progress
-    jobProgress.set(jobId, {
-      id: jobId,
-      status: "processing",
-      pct: 5,
-      statusMessage: "Starting processing..."
-    });
+    // Initialize processing with detailed tracking
+    await this.updateJobProgress(jobId, PROCESSING_STAGES.INITIALIZATION, 5, "Starting processing...");
 
     try {
       let resultUrl: string;
@@ -180,12 +236,7 @@ class QueueWorker {
         console.log(`🎯 CORRECT ARCHITECTURE: Fly.io downloads first, Modal processes`);
         
         // STEP 1: Fly.io attempts YouTube download
-        jobProgress.set(jobId, {
-          id: jobId,
-          status: "processing",
-          pct: 10,
-          statusMessage: "[Fly.io] Attempting YouTube download..."
-        });
+        await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 10, "[Fly.io] Attempting YouTube download...");
 
         let audioUrl: string | null = null;
         let downloadError: string | null = null;
@@ -199,94 +250,124 @@ class QueueWorker {
             
             audioUrl = downloadResult.audioUrl;
             
-            jobProgress.set(jobId, {
-              id: jobId,
-              status: "processing",
-              pct: 25,
-              statusMessage: "[Fly.io] Download successful, sending to Modal GPU..."
-            });
-            
+            console.log(`✅ [Fly.io] Download successful: ${audioUrl}`);
+            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Fly.io] Download successful, preparing for GPU processing...");
           } catch (error) {
             downloadError = (error as Error).message;
-            console.log(`❌ [Fly.io] Download failed: ${downloadError}`);
-            console.log(`🔄 [Modal] Will attempt download as fallback...`);
-            
-            jobProgress.set(jobId, {
-              id: jobId,
-              status: "processing",
-              pct: 15,
-              statusMessage: "[Fly.io] Download failed, Modal will attempt download..."
-            });
+            console.log(`❌ [Fly.io] Download failed with exception: ${downloadError}`);
+            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, `[Fly.io] Download error: ${downloadError}. Modal will attempt fallback download...`);
           }
-        }
-
-        // STEP 2: Send job to Modal (with or without pre-downloaded audio)
-        console.log(`🚀 [Modal] Processing job ${jobId} with GPU...`);
-        
-        const modalInput = {
-          youtube_url: youtubeUrl,
-          job_id: jobId,
-          audio_url: audioUrl, // null if Fly.io download failed
-          fly_download_error: downloadError // inform Modal of Fly.io failure
-        };
-
-        const modalResult: ModalJobResult = await this.modalClient.submitJob(modalInput);
-        
-        if (modalResult.status === "error") {
-          throw new Error(`Modal GPU processing failed: ${modalResult.error?.message || "Unknown Modal error"}`);
-        }
-
-        console.log(`✅ [Modal] Job ${jobId} completed successfully`);
-
-        // Extract result URL from Modal response
-        if (modalResult.output && modalResult.output.results_url) {
-          resultUrl = modalResult.output.results_url;
-        } else if (modalResult.output && modalResult.output.resultUrl) {
-          resultUrl = modalResult.output.resultUrl;
         } else {
-          throw new Error("Modal did not return a valid result URL");
+          console.log(`⚠️ [Fly.io] No worker available, Modal will handle download`);
+          await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Fly.io] No local worker, Modal will handle download...");
         }
 
-        console.log(`📄 Job ${jobId} completed with result URL: ${resultUrl}`);
+        // STEP 2: Hand off to Modal for GPU processing
+        await this.updateJobProgress(jobId, PROCESSING_STAGES.TRANSCRIPTION, 20, "[Modal] Starting GPU processing...");
         
+        const modalStartTime = Date.now();
+        console.log(`🚀 [Modal] Submitting job to Modal GPU infrastructure...`);
+        
+        const modalResult: ModalJobResult = await this.modalClient.submitJob({
+          youtube_url: youtubeUrl,
+          audio_url: audioUrl, // Can be null if Fly.io download failed
+          job_id: jobId,
+          openai_model: openaiModel || "whisper-1",
+          download_error: downloadError // Inform Modal about download status
+        }, (progressUpdate) => {
+          // Map Modal progress (30%-95%) to overall job progress  
+          const overallProgress = Math.round(30 + (progressUpdate.percentage * 0.65));
+          this.updateJobProgress(
+            jobId, 
+            progressUpdate.stage || PROCESSING_STAGES.TRANSCRIPTION,
+            overallProgress,
+            `[Modal] ${progressUpdate.message}`
+          );
+        });
+
+        const modalDuration = (Date.now() - modalStartTime) / 1000;
+        
+        if (modalResult.success && modalResult.result) {
+          console.log(`✅ [Modal] Processing completed in ${modalDuration.toFixed(1)}s`);
+          await this.updateJobProgress(jobId, PROCESSING_STAGES.FINALIZATION, 95, "[Modal] Processing completed, finalizing...");
+          
+          // Update database with Modal results and processing metadata
+          await safeDbQuery(
+            `UPDATE jobs SET 
+              status = $1, 
+              pct = $2, 
+              result_url = $3, 
+              updated_at = $4,
+              processing_method = $5,
+              processing_time_seconds = $6,
+              video_id = $7
+            WHERE id = $8`,
+            [
+              'done', 
+              100, 
+              modalResult.result.result_url, 
+              new Date(),
+              modalResult.result.processing_method || 'modal_gpu',
+              modalDuration,
+              this.extractVideoId(youtubeUrl),
+              jobId
+            ]
+          );
+
+          // Update in-memory progress
+          jobProgress.set(jobId, {
+            id: jobId,
+            status: "done",
+            pct: 100,
+            resultUrl: modalResult.result.result_url,
+            statusMessage: "✅ Processing completed successfully"
+          });
+          
+          console.log(`🎉 Job ${jobId} completed successfully: ${modalResult.result.result_url}`);
+        } else {
+          const errorMessage = modalResult.error?.message || "Modal processing failed";
+          throw new Error(errorMessage);
+        }
       } else {
-        // No Modal available - this should be rare in production
-        throw new Error("Modal GPU processing unavailable. Please configure MODAL_TOKEN_ID and MODAL_TOKEN_SECRET environment variables.");
+        // Fallback to local processing if Modal is not available
+        console.log(`⚠️ No Modal client available, falling back to local processing`);
+        await this.updateJobProgress(jobId, PROCESSING_STAGES.TRANSCRIPTION, 20, "Starting local processing...");
+        
+        if (!this.worker) {
+          throw new Error("No transcription worker available for local processing");
+        }
+
+        const localResult = await this.worker.processJob(jobId, youtubeUrl, undefined, openaiModel || "whisper-1");
+        
+        await safeDbQuery(
+          'UPDATE jobs SET status = $1, pct = $2, result_url = $3, updated_at = $4, processing_method = $5 WHERE id = $6',
+          ['done', 100, localResult.resultUrl, new Date(), 'local_cpu', jobId]
+        );
+
+        jobProgress.set(jobId, {
+          id: jobId,
+          status: "done",
+          pct: 100,
+          resultUrl: localResult.resultUrl,
+          statusMessage: "✅ Local processing completed"
+        });
       }
 
-      // Update database with completed status and result URL
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      console.error(`❌ Job ${jobId} failed:`, errorMessage);
+      
       await safeDbQuery(
-        'UPDATE jobs SET status = $1, results_url = $2, updated_at = $3 WHERE id = $4',
-        ['completed', resultUrl, new Date(), jobId]
+        'UPDATE jobs SET status = $1, error = $2, updated_at = $3 WHERE id = $4',
+        ['error', errorMessage, new Date(), jobId]
       );
 
-      // Update in-memory progress to completed
-      jobProgress.set(jobId, {
-        id: jobId,
-        status: "done",
-        pct: 100,
-        statusMessage: "Processing completed successfully!",
-        resultUrl: resultUrl
-      });
-
-      console.log(`✅ Job ${jobId} completed successfully`);
-
-    } catch (error: any) {
-      console.error(`❌ Job ${jobId} failed:`, error);
-
-      // Update database with error status
-      await safeDbQuery(
-        'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
-        ['error', error.message, new Date(), jobId]
-      );
-
-      // Update in-memory progress to error
       jobProgress.set(jobId, {
         id: jobId,
         status: "error",
         pct: 0,
-        statusMessage: `Processing failed: ${error.message}`,
-        error: error.message
+        error: errorMessage,
+        statusMessage: `❌ Processing failed: ${errorMessage}`
       });
     }
   }
@@ -295,10 +376,9 @@ class QueueWorker {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Graceful shutdown handler
   setupGracefulShutdown() {
     const shutdown = () => {
-      console.log("🔄 Received shutdown signal, stopping queue worker...");
+      console.log("🛑 Received shutdown signal, stopping queue worker...");
       this.stop();
       process.exit(0);
     };
@@ -308,22 +388,17 @@ class QueueWorker {
   }
 
   private extractVideoId(youtubeUrl: string): string {
-    const url = new URL(youtubeUrl);
-    const videoId = url.searchParams.get('v');
-    if (videoId) {
-      return videoId;
-    }
-    const pathSegments = url.pathname.split('/');
-    const lastSegment = pathSegments[pathSegments.length - 1];
-    if (lastSegment.length === 11) { // YouTube video IDs are 11 characters
-      return lastSegment;
-    }
-    throw new Error(`Could not extract video ID from URL: ${youtubeUrl}`);
+    const match = youtubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : '';
+  }
+
+  // Public method to get job progress (used by API routes)
+  getJobProgress(jobId: string): Job | undefined {
+    return jobProgress.get(jobId);
   }
 }
 
-// Export the job progress map so the API can access it
-export { jobProgress };
+export { QueueWorker };
 
 // Main execution - check if this file is being run directly (ESM compatible)
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -331,5 +406,3 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   queueWorker.setupGracefulShutdown();
   queueWorker.start().catch(console.error);
 }
-
-export default QueueWorker;
