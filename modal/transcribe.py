@@ -137,24 +137,51 @@ def transcribe_with_groq(audio_path: Path, api_key: str) -> Dict[str, Any]:
                 timestamp_granularities=["word"]
             )
         
+        # Debug: Print transcription structure
+        print(f"Groq transcription type: {type(transcription)}")
+        print(f"Groq transcription attributes: {dir(transcription)}")
+        if hasattr(transcription, 'words') and transcription.words:
+            print(f"First word type: {type(transcription.words[0])}")
+            print(f"First word: {transcription.words[0]}")
+        else:
+            print("No words attribute or empty words")
+        
         # Convert Groq response to our expected format
         segments = []
-        if hasattr(transcription, 'words') and transcription.words:
+        words = getattr(transcription, 'words', [])
+        
+        print(f"Groq returned {len(words)} words")
+        
+        if words:
             # Group words into segments (similar to Whisper segments)
             current_segment = []
             segment_start = None
             segment_id = 0
             
-            for i, word in enumerate(transcription.words):
-                if segment_start is None:
-                    segment_start = word.start
+            for i, word_data in enumerate(words):
+                # Handle both dict and object formats
+                if isinstance(word_data, dict):
+                    word_text = word_data.get('word', '')
+                    word_start = word_data.get('start', 0)
+                    word_end = word_data.get('end', 0)
+                else:
+                    word_text = getattr(word_data, 'word', '')
+                    word_start = getattr(word_data, 'start', 0)
+                    word_end = getattr(word_data, 'end', 0)
                 
-                current_segment.append(word)
+                if segment_start is None:
+                    segment_start = word_start
+                
+                current_segment.append({
+                    'word': word_text,
+                    'start': word_start,
+                    'end': word_end
+                })
                 
                 # Create segment every 10 words or at end
-                if len(current_segment) >= 10 or i == len(transcription.words) - 1:
-                    segment_text = " ".join([w.word for w in current_segment])
-                    segment_end = current_segment[-1].end
+                if len(current_segment) >= 10 or i == len(words) - 1:
+                    segment_text = " ".join([w['word'] for w in current_segment])
+                    segment_end = current_segment[-1]['end']
                     
                     segments.append({
                         "id": segment_id,
@@ -163,9 +190,9 @@ def transcribe_with_groq(audio_path: Path, api_key: str) -> Dict[str, Any]:
                         "text": segment_text,
                         "words": [
                             {
-                                "word": w.word,
-                                "start": w.start,
-                                "end": w.end,
+                                "word": w['word'],
+                                "start": w['start'],
+                                "end": w['end'],
                                 "probability": 0.9  # Groq doesn't provide probability
                             } for w in current_segment
                         ]
@@ -175,12 +202,21 @@ def transcribe_with_groq(audio_path: Path, api_key: str) -> Dict[str, Any]:
                     segment_start = None
                     segment_id += 1
         
+        # Calculate duration from words
+        duration = 0
+        if words:
+            last_word = words[-1]
+            if isinstance(last_word, dict):
+                duration = last_word.get('end', 0)
+            else:
+                duration = getattr(last_word, 'end', 0)
+        
         result = {
             "segments": segments,
             "language": getattr(transcription, 'language', 'en'),
             "language_probability": 0.95,  # Groq doesn't provide this
-            "duration": transcription.words[-1].end if transcription.words else 0,
-            "text": transcription.text
+            "duration": duration,
+            "text": getattr(transcription, 'text', '')
         }
         
         print(f"Groq transcription completed: {len(segments)} segments")
