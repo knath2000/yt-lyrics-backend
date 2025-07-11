@@ -208,7 +208,7 @@ export class TranscriptionWorker {
       if (cacheError?.http_code === 404) {
         console.log(`💾 [Fly.io Cache] No cached audio found for ${videoId}, proceeding with download...`);
       } else {
-        console.warn(`⚠️ [Fly.io Cache] Cache check error for ${videoId}:`, cacheError.message);
+        console.warn(`⚠️ [Fly.io Cache] Cache check error for ${videoId}:`, cacheError?.message || cacheError?.error || cacheError || 'Unknown error');
         console.log(`🔄 [Fly.io Cache] Proceeding with download despite cache error...`);
       }
     }
