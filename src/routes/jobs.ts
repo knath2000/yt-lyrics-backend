@@ -137,9 +137,9 @@ export default function createJobsRouter(
       const dbJob = result.rows[0];
       res.json({
         status: dbJob.status,
-        pct: dbJob.status === 'completed' ? 100 : 0,
+        pct: (dbJob.status === 'completed' || dbJob.status === 'done') ? 100 : 0,
         resultUrl: dbJob.results_url,
-        statusMessage: dbJob.status === 'completed' ? 'Complete!' : 'Processing...',
+        statusMessage: (dbJob.status === 'completed' || dbJob.status === 'done') ? 'Complete!' : 'Processing...',
         error: dbJob.error_message
       });
     } catch (error) {
@@ -164,7 +164,7 @@ export default function createJobsRouter(
       }
 
       const job = result.rows[0];
-      if (job.status !== "completed" || !job.results_url) {
+      if ((job.status !== "completed" && job.status !== "done") || !job.results_url) {
         return res.status(400).json({ error: "Result not ready" });
       }
       
@@ -259,7 +259,7 @@ export default function createJobsRouter(
         status: job.status,
         pct: job.pct || 0,
         statusMessage: job.status_message || (
-          job.status === 'completed' ? 'Complete!' :
+          (job.status === 'completed' || job.status === 'done') ? 'Complete!' :
           job.status === 'queued' ? 'Waiting in queue...' : 'Processing...'
         ),
         error: job.error_message,
