@@ -168,7 +168,8 @@ export class TranscriptionWorker {
 
   /**
    * Public method for QueueWorker to attempt YouTube download
-   * Returns the downloaded audio path and uploads to Cloudinary for Modal access
+   * First checks Cloudinary cache, then downloads if needed
+   * Returns the audio URL (cached or newly uploaded) for Modal access
    */
   async downloadAudioForModal(youtubeUrl: string, jobId: string): Promise<{ audioUrl: string; videoId: string }> {
     const videoId = this.extractVideoId(youtubeUrl);
@@ -183,7 +184,38 @@ export class TranscriptionWorker {
       fs.mkdirSync(jobDir, { recursive: true });
     }
 
-    // Try download using HybridDownloader
+    // STEP 1: Check Cloudinary cache first
+    const cachePublicId = `audio/${videoId}/bestaudio_mp3`;
+    
+    try {
+      console.log(`🔍 [Fly.io Cache] Checking cache for video ${videoId}...`);
+      
+      // Check if cached audio exists in Cloudinary
+      const resource = await this.cloudinary.api.resource(cachePublicId, {
+        resource_type: "video"
+      });
+      
+      if (resource && resource.secure_url) {
+        console.log(`✅ [Fly.io Cache] Cache hit! Using cached audio: ${resource.secure_url}`);
+        
+        return {
+          audioUrl: resource.secure_url,
+          videoId: videoId
+        };
+      }
+    } catch (cacheError: any) {
+      // Cache miss (404) or other error - proceed with download
+      if (cacheError?.http_code === 404) {
+        console.log(`💾 [Fly.io Cache] No cached audio found for ${videoId}, proceeding with download...`);
+      } else {
+        console.warn(`⚠️ [Fly.io Cache] Cache check error for ${videoId}:`, cacheError.message);
+        console.log(`🔄 [Fly.io Cache] Proceeding with download despite cache error...`);
+      }
+    }
+
+    // STEP 2: Cache miss - download using HybridDownloader
+    console.log(`📥 [Fly.io] Downloading audio from YouTube for ${videoId}...`);
+    
     const downloadResult = await this.hybridDownloader.downloadAudio(youtubeUrl, jobDir);
     
     if (!downloadResult || !downloadResult.audioPath) {
@@ -192,14 +224,15 @@ export class TranscriptionWorker {
 
     console.log(`✅ [Fly.io] Download successful: ${downloadResult.audioPath}`);
     
-    // Upload audio to Cloudinary for Modal access
+    // STEP 3: Upload fresh audio to Cloudinary cache for future use
     const audioUploadResult = await this.cloudinary.uploader.upload(downloadResult.audioPath, {
       resource_type: "video",
-      public_id: `audio/${videoId}/bestaudio_mp3`,
+      public_id: cachePublicId,
+      overwrite: true,
       tags: ["yt_audio_cache", `video:${videoId}`]
     });
     
-    console.log(`📤 [Fly.io] Audio uploaded to Cloudinary: ${audioUploadResult.secure_url}`);
+    console.log(`📤 [Fly.io] Audio uploaded to Cloudinary cache: ${audioUploadResult.secure_url}`);
     
     return {
       audioUrl: audioUploadResult.secure_url,

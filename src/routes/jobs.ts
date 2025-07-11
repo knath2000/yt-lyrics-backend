@@ -242,7 +242,7 @@ export default function createJobsRouter(
     // Fall back to database for completed/queued jobs
     try {
       const result = await pool.query(
-        `SELECT status, pct, status_message, error, current_stage, 
+        `SELECT status, pct, status_message, error_message, current_stage, 
                 processing_method, processing_time_seconds 
          FROM jobs WHERE id = $1`,
         [req.params.id]
@@ -262,7 +262,7 @@ export default function createJobsRouter(
           job.status === 'completed' ? 'Complete!' :
           job.status === 'queued' ? 'Waiting in queue...' : 'Processing...'
         ),
-        error: job.error,
+        error: job.error_message,
         currentStage: job.current_stage,
         processingMethod: job.processing_method,
         estimatedTimeRemaining: estimatedTime

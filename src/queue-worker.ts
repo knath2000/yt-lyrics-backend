@@ -235,27 +235,27 @@ class QueueWorker {
       if (this.modalClient) {
         console.log(`🎯 CORRECT ARCHITECTURE: Fly.io downloads first, Modal processes`);
         
-        // STEP 1: Fly.io attempts YouTube download
-        await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 10, "[Fly.io] Attempting YouTube download...");
+        // STEP 1: Fly.io attempts cache check and download
+        await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 10, "[Fly.io] Checking cache and attempting download...");
 
         let audioUrl: string | null = null;
         let downloadError: string | null = null;
 
         if (this.worker) {
           try {
-            console.log(`📥 [Fly.io] Attempting YouTube download for job ${jobId}...`);
+            console.log(`🔍 [Fly.io] Checking cache and attempting download for job ${jobId}...`);
             
-            // Try Fly.io download using the new public method
+            // Try Fly.io cache check + download using the enhanced method
             const downloadResult = await this.worker.downloadAudioForModal(youtubeUrl, jobId);
             
             audioUrl = downloadResult.audioUrl;
             
-            console.log(`✅ [Fly.io] Download successful: ${audioUrl}`);
-            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Fly.io] Download successful, preparing for GPU processing...");
+            console.log(`✅ [Fly.io] Audio ready: ${audioUrl}`);
+            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Fly.io] Audio ready, preparing for GPU processing...");
           } catch (error) {
             downloadError = (error as Error).message;
-            console.log(`❌ [Fly.io] Download failed with exception: ${downloadError}`);
-            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, `[Fly.io] Download error: ${downloadError}. Modal will attempt fallback download...`);
+            console.log(`❌ [Fly.io] Audio preparation failed: ${downloadError}`);
+            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, `[Fly.io] Audio preparation failed: ${downloadError}. Modal will attempt fallback download...`);
           }
         } else {
           console.log(`⚠️ [Fly.io] No worker available, Modal will handle download`);
@@ -296,7 +296,7 @@ class QueueWorker {
             `UPDATE jobs SET 
               status = $1, 
               pct = $2, 
-              result_url = $3, 
+              results_url = $3, 
               updated_at = $4,
               processing_method = $5,
               processing_time_seconds = $6,
@@ -340,7 +340,7 @@ class QueueWorker {
         const localResult = await this.worker.processJob(jobId, youtubeUrl, undefined, openaiModel || "whisper-1");
         
         await safeDbQuery(
-          'UPDATE jobs SET status = $1, pct = $2, result_url = $3, updated_at = $4, processing_method = $5 WHERE id = $6',
+          'UPDATE jobs SET status = $1, pct = $2, results_url = $3, updated_at = $4, processing_method = $5 WHERE id = $6',
           ['done', 100, localResult.resultUrl, new Date(), 'local_cpu', jobId]
         );
 
@@ -358,7 +358,7 @@ class QueueWorker {
       console.error(`❌ Job ${jobId} failed:`, errorMessage);
       
       await safeDbQuery(
-        'UPDATE jobs SET status = $1, error = $2, updated_at = $3 WHERE id = $4',
+        'UPDATE jobs SET status = $1, error_message = $2, updated_at = $3 WHERE id = $4',
         ['error', errorMessage, new Date(), jobId]
       );
 

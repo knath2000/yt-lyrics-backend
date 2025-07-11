@@ -655,10 +655,17 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
                 transcription_result = transcribe_with_faster_whisper(transcription_audio)
                 update_progress(65, "[Modal] Faster-Whisper transcription completed", "transcription")
             
-            # STEP 4: Word alignment with WhisperX
-            update_progress(70, "[Modal] Aligning word timestamps with WhisperX...", "alignment")
-            aligned_result = align_with_whisperx(transcription_audio, transcription_result, temp_path)
-            update_progress(85, "[Modal] Word alignment completed", "alignment")
+            # STEP 4: Word alignment with WhisperX (only needed for Faster-Whisper)
+            if processing_method == "groq_whisper":
+                # Groq already provides word-level timestamps, no alignment needed
+                update_progress(70, "[Modal] Groq provides word timestamps, skipping alignment...", "alignment")
+                aligned_result = transcription_result
+                update_progress(85, "[Modal] Using Groq word timestamps", "alignment")
+            else:
+                # Faster-Whisper needs WhisperX for word-level alignment
+                update_progress(70, "[Modal] Aligning word timestamps with WhisperX...", "alignment")
+                aligned_result = align_with_whisperx(transcription_audio, transcription_result, temp_path)
+                update_progress(85, "[Modal] Word alignment completed", "alignment")
             
             # STEP 5: Generate final results
             update_progress(90, "[Modal] Generating final results...", "finalization")
