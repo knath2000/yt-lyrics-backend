@@ -1,8 +1,28 @@
 # Progress - Backend
 
+<<<<<<< HEAD
 _Last updated: 2025-01-11_
 
 ## ✅ BREAKTHROUGH ACHIEVEMENT: Groq Whisper Large-v3 Turbo Integration (2025-01-11)
+=======
+_Last updated: 2025-08-12_
+
+## ✅ BREAKTHROUGH ACHIEVEMENT: Groq Whisper Large-v3 Turbo Integration (2025-01-11)
+## 🧭 RECONCILIATION: Align Docs with Current Code (2025-08-12)
+
+### 🔄 Downloader & Caching
+- **EXPLICIT CLIENTS**: Implemented `authenticated-*` and `unauth-*` yt-dlp methods (tv/ios/web)
+- **COOKIES**: `YOUTUBE_COOKIES_CONTENT` used to enable authenticated methods
+- **CACHE-FIRST**: Cloudinary cache lookup/upload under `audio/{videoId}/bestaudio_mp3`
+
+### ☁️ Modal Offload
+- **WEB ENDPOINT**: QueueWorker submits to Modal public function URL; progress mapped into DB
+- **LOCAL FALLBACK**: OpenAI transcription (`gpt-4o-mini-transcribe`/`gpt-4o-transcribe`) + WhisperX
+
+### 🧱 API & DB
+- **Endpoints**: `/api/jobs`, `/api/jobs/:id`, `/api/jobs/:id/progress`, `/api/jobs/:id/steps`, `/api/jobs/:id/result`
+- **Columns**: `pct`, `status_message`, `current_stage`, `processing_method`, `processing_time_seconds`, `video_id`, `progress_log`
+>>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
 
 ### 🚀 ULTRA-FAST PROCESSING: 15-20x Performance Improvement
 - **GROQ INTEGRATION**: Groq Whisper Large-v3 Turbo achieving 1-2 second transcription times

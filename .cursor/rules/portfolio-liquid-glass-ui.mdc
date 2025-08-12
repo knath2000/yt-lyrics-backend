@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+---
+# Portfolio Liquid Glass UI
+
+Objective: Provide tokens and patterns for Apple-like Liquid Glass (iOS/macOS) with animated gradients and performance/accessibility safeguards.
+
+## Tokens
+- `--glass-bg`: rgba(255,255,255,0.15)
+- `--glass-border`: rgba(255,255,255,0.20–0.30)
+- `--glass-blur`: 16px
+- `--glass-shadow`: 0 8px 32px 0 rgba(31,38,135,0.20)
+- Gradient base: conic or radial with blues/purples/pinks; duration 6–12s; easing cubic-bezier(.65,0,.35,1)
+
+## Patterns
+- Sticky navbar: semi-transparent dark alpha (~0.72), backdrop-blur, subtle border, light shadow.
+- Animated underline (Framer Motion): spring transition; `useReducedMotion` fallback.
+- Section tracking: IntersectionObserver thresholds mobile 0.5 / desktop 0.6–0.7; rootMargin bias.
+- Reduced motion: disable gradient movement and underline animation.
+- Contrast: provide `prefers-contrast: more` overrides; ensure legible text.
+- Fallback: `@supports not (backdrop-filter)` set solid backgrounds/borders.
+
+## Performance
+- Limit blur areas to small fixed containers (nav/cards).
+- Cap DPR on low-spec; disable postprocessing and heavy effects.
+- Defer heavy client components; keep bundle budgets in check.
+
+Sources (via Perplexity MCP): MDN backdrop-filter, web.dev guidance, Apple Liquid Glass coverage, CSS glass generators.

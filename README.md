@@ -18,16 +18,19 @@ A powerful backend service for extracting lyrics from YouTube videos using advan
 
 ## API Endpoints
 
-### Health Check
+### Health & Metrics
 ```
-GET /health
+GET /health    # Health check (DB connectivity, setup status)
+GET /metrics   # Basic runtime metrics
 ```
 
 ### Job Management
 ```
-POST /api/jobs/create     # Create new transcription job
-GET /api/jobs/:id/status  # Check job status
-GET /api/jobs/:id/result  # Get transcription result
+POST /api/jobs           # Create new transcription job ({ youtubeUrl, preset? })
+GET  /api/jobs/:id       # Get job status (in-memory/DB)
+GET  /api/jobs/:id/progress  # Real-time progress
+GET  /api/jobs/:id/steps     # Detailed step tracking
+GET  /api/jobs/:id/result    # Get transcription result (Cloudinary JSON)
 ```
 
 ## Environment Variables

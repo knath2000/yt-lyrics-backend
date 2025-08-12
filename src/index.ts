@@ -19,6 +19,7 @@ const cookieFilePath = initializeCookieJar();
 
 const app = express();
 
+<<<<<<< HEAD
 // CORS configuration for frontend access
 const corsOptions = {
   origin: [
@@ -48,6 +49,33 @@ if (isDevelopment) {
 } else {
   app.use(cors(corsOptions));
 }
+=======
+// CORS configuration for frontend access (function/regex allowlist)
+const allowedOriginPatterns: (RegExp | string)[] = [
+  /^https?:\/\/localhost(?::\d+)?$/,
+  /^https?:\/\/(.*\.)?vercel\.app$/,
+  /^https?:\/\/(.*\.)?onrender\.com$/,
+  process.env.FRONTEND_ORIGIN || ''
+].filter(Boolean) as (RegExp | string)[];
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const ok = allowedOriginPatterns.some((pat) =>
+      typeof pat === 'string' ? origin === pat : pat.test(origin)
+    );
+    if (ok) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+>>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
 
 app.use(express.json());
 

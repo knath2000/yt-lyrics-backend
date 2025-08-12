@@ -1,4 +1,71 @@
 ---
+Date: 2025-08-12
+TaskRef: "Align docs with code; set new Railway URL"
+
+Learnings:
+- Frontend uses `ModelPreset` and expects `/api/jobs`, `/progress`, `/steps`, `/result` endpoints.
+- Default backend URL should be Railway; updated to `https://web-production-5905c.up.railway.app`.
+- Backend docs had merge markers; unified to explicit yt-dlp client strategies with cookie support and Cloudinary cache-first.
+
+Difficulties:
+- Conflicting narratives across memory files (single backend vs racing); resolved minimally without large rewrites.
+
+Successes:
+- Updated frontend code and docs to new env var name and default URL; fixed header health link.
+- Cleaned backend techContext and backend README endpoints.
+
+Improvements_Identified_For_Consolidation:
+- Pattern: Keep env var naming consistent across repos (`NEXT_PUBLIC_BACKEND_URL`).
+- Pattern: Document `/progress` and `/steps` explicitly for clients.
+---
+<<<<<<< HEAD
+=======
+Date: 2025-08-12
+TaskRef: "Reconcile memory banks across frontend and backend"
+
+Learnings:
+- Frontend currently uses a single Railway backend with a `ModelPreset` dropdown (regular/high), posting `{ youtubeUrl, preset }` and polling `/progress`.
+- Backend uses explicit yt-dlp player client strategies (`authenticated/unauth` × `tv/ios/web`) with optional cookies from `YOUTUBE_COOKIES_CONTENT`.
+- Cloudinary cache-first pattern is active for audio (`audio/{videoId}/bestaudio_mp3`).
+- Modal GPU is invoked via public function URL (no SDK/token in code path); local fallback uses OpenAI + WhisperX.
+- Env var naming on frontend is `NEXT_PUBLIC_BACKEND_URL` (not `NEXT_PUBLIC_API_BASE`).
+
+Difficulties:
+- Memory docs referenced dual-backend racing and removed quality tiers, diverging from current code using presets and single backend.
+- Backend tech doc suggested simplified single unauth strategy; code implements explicit multi-strategy with cookies.
+
+Successes:
+- Updated both memory banks to reflect actual code paths, env vars, endpoints, and presets.
+- Captured downloader strategy and Modal web endpoint usage clearly.
+
+Improvements_Identified_For_Consolidation:
+- Pattern: Explicit yt-dlp player-client switching with cookie-gated authenticated methods.
+- Pattern: API-driven GPU offload via public function endpoint with progress mapping.
+- Convention: Standardize frontend env var to `NEXT_PUBLIC_BACKEND_URL` in docs.
+---
+Date: 2025-08-12
+TaskRef: "Front-end Liquid Glass UI, Vercel pnpm alignment, MCP integrations"
+
+Learnings:
+- Frontend overhaul requires updating page/layout/components plus global CSS; verify output contains signature classes via curl.
+- Vercel can serve old builds when Production Overrides mismatch (npm vs pnpm); align to pnpm and redeploy without cache.
+- For Next.js App Router, `app/layout.tsx` importing `app/globals.css` is sufficient for global styling.
+- MCP servers can be connected via SSE (Glama) or Node-based stdio through `~/.cursor/mcp.json`.
+
+Difficulties:
+- Stale-looking production despite redeploy: caused by npm build commands and cached artifact.
+- Local EADDRINUSE on port 3000: resolved by killing the existing process or using another port.
+
+Successes:
+- Implemented Liquid Glass tokens/utilities and upgraded UI components; verified locally.
+- Standardized Vercel to pnpm with `pnpm-lock.yaml` and `vercel.json` commands.
+- Added `sequentialthinking-tools` and ensured Perplexity Ask MCP entries in `~/.cursor/mcp.json`.
+
+Improvements_Identified_For_Consolidation:
+- Pattern: Keep package manager consistent across local/CI; commit lockfile and set build commands.
+- Pattern: Confirm deployment by inspecting deployment Source (/_src) for new classes.
+---
+>>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
 Date: 2025-01-07
 TaskRef: "Comprehensive System Analysis - Frontend and Backend Understanding"
 
