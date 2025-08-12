@@ -7,7 +7,7 @@ This document is reconciled to the current codebase and deployment state.
 ## Deployment Architecture
 
 - **Railway (primary for frontend usage)**: `https://web-production-5905c.up.railway.app`
-- **Fly.io (additional deployment)**: `https://yt-lyrics-backend.fly.dev`
+<!-- Fly.io deployment deprecated; fully migrated to Railway/Modal -->
 
 Both expose the same API surface. The frontend defaults to the Railway host and can override via env.
 

@@ -11,8 +11,7 @@ _Last updated: 2025-01-11_
 
 ## Current Deployment Status
 
-### Fly.io Deployment (Primary)
-- **URL**: `https://yt-lyrics-backend.fly.dev`
+<!-- Fly.io deployment removed; Railway/Modal only -->
 - **Status**: 🟢 Active – Ultra-fast Groq processing with comprehensive tracking
 - **Database**: Uses PostgreSQL database via `DATABASE_URL` Fly secret
 - **Scaling**: Auto-start/stop machines; 0-1 shared CPU (optimized for orchestration only)
@@ -56,9 +55,9 @@ _Last updated: 2025-01-11_
 ## Technical Stack Details (Current State)
 
 ### Ultra-Fast Audio Processing Pipeline
-- **Stage 1: Download Orchestration (Fly.io)** 
+- **Stage 1: Download Orchestration (Railway)** 
   - **Cache Check**: Intelligent Cloudinary cache verification before download attempts
-  - **YouTube Download**: Fly.io attempts authenticated yt-dlp download with cookie support
+  - **YouTube Download**: Authenticated yt-dlp download with cookie support
   - **Audio Upload**: Successful downloads uploaded to Cloudinary for Modal access
   - **Fallback Coordination**: Failed downloads trigger Modal fallback processing
 
@@ -69,7 +68,7 @@ _Last updated: 2025-01-11_
   - **Conditional Alignment**: WhisperX only for Faster-Whisper (Groq provides word timestamps)
   - **Result Upload**: Direct upload to Cloudinary from Modal with comprehensive metadata
 
-- **Stage 3: Result Coordination (Fly.io)**
+- **Stage 3: Result Coordination (Railway)**
   - **Database Update**: Comprehensive job status and metadata updates with correct column names
   - **Frontend Access**: Real-time progress API with detailed step tracking
   - **Progress Tracking**: End-to-end visibility with processing method identification

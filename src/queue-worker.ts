@@ -233,33 +233,33 @@ class QueueWorker {
       let resultUrl: string;
 
       if (this.modalClient) {
-        console.log(`🎯 CORRECT ARCHITECTURE: Fly.io downloads first, Modal processes`);
+        console.log(`🎯 CORRECT ARCHITECTURE: Railway downloads first, Modal processes`);
         
-        // STEP 1: Fly.io attempts cache check and download
-        await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 10, "[Fly.io] Checking cache and attempting download...");
+        // STEP 1: Railway attempts cache check and download
+        await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 10, "[Railway] Checking cache and attempting download...");
 
         let audioUrl: string | null = null;
         let downloadError: string | null = null;
 
         if (this.worker) {
           try {
-            console.log(`🔍 [Fly.io] Checking cache and attempting download for job ${jobId}...`);
+            console.log(`🔍 [Railway] Checking cache and attempting download for job ${jobId}...`);
             
             // Try Fly.io cache check + download using the enhanced method
             const downloadResult = await this.worker.downloadAudioForModal(youtubeUrl, jobId);
             
             audioUrl = downloadResult.audioUrl;
             
-            console.log(`✅ [Fly.io] Audio ready: ${audioUrl}`);
-            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Fly.io] Audio ready, preparing for GPU processing...");
+            console.log(`✅ [Railway] Audio ready: ${audioUrl}`);
+            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Railway] Audio ready, preparing for GPU processing...");
           } catch (error) {
             downloadError = (error as Error).message;
-            console.log(`❌ [Fly.io] Audio preparation failed: ${downloadError}`);
-            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, `[Fly.io] Audio preparation failed: ${downloadError}. Modal will attempt fallback download...`);
+            console.log(`❌ [Railway] Audio preparation failed: ${downloadError}`);
+            await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, `[Railway] Audio preparation failed: ${downloadError}. Modal will attempt fallback download...`);
           }
         } else {
-          console.log(`⚠️ [Fly.io] No worker available, Modal will handle download`);
-          await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Fly.io] No local worker, Modal will handle download...");
+          console.log(`⚠️ [Railway] No worker available, Modal will handle download`);
+          await this.updateJobProgress(jobId, PROCESSING_STAGES.DOWNLOAD, 15, "[Railway] No local worker, Modal will handle download...");
         }
 
         // STEP 2: Hand off to Modal for GPU processing
