@@ -245,7 +245,7 @@ class QueueWorker {
           try {
             console.log(`🔍 [Railway] Checking cache and attempting download for job ${jobId}...`);
             
-            // Try Fly.io cache check + download using the enhanced method
+            // Try Railway cache check + download using the enhanced method
             const downloadResult = await this.worker.downloadAudioForModal(youtubeUrl, jobId);
             
             audioUrl = downloadResult.audioUrl;
@@ -270,7 +270,7 @@ class QueueWorker {
         
         const modalResult: ModalJobResult = await this.modalClient.submitJob({
           youtube_url: youtubeUrl,
-          audio_url: audioUrl, // Can be null if Fly.io download failed
+          audio_url: audioUrl, // Can be null if Railway download failed
           job_id: jobId,
           openai_model: openaiModel || "whisper-1",
           download_error: downloadError // Inform Modal about download status

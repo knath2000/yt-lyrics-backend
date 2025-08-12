@@ -4,10 +4,10 @@ _Last updated: 2025-01-11_
 
 ## Current Focus
 - **✅ GROQ ULTRA-FAST PROCESSING**: Groq Whisper Large-v3 Turbo integration achieving 15-20x performance improvement
-- **✅ COMPREHENSIVE STATUS TRACKING**: End-to-end progress visibility from Fly.io → Modal → frontend
+- **✅ COMPREHENSIVE STATUS TRACKING**: End-to-end progress visibility from Railway → Modal → frontend
 - **✅ DATABASE COLUMN FIXES**: Resolved all column name mismatches causing frontend stuck at 95%
 - **✅ CLOUDINARY CACHE OPTIMIZATION**: Intelligent cache checking to skip redundant downloads
-- **✅ CORRECT ARCHITECTURE**: Fly.io handles YouTube downloads, Modal handles all transcription processing
+- **✅ CORRECT ARCHITECTURE**: Railway handles YouTube downloads, Modal handles all transcription processing
 
 ## Current Deployment Status
 

@@ -36,7 +36,7 @@ _Last updated: 2025-08-12_
 - **ADVANCED QUEUE WORKER**: ProcessingStep interface with status, percentage, message, timestamp, duration
 - **DATABASE SCHEMA ENHANCEMENT**: Added pct, status_message, current_stage, processing_method, processing_time_seconds, video_id, progress_log (JSONB)
 - **REAL-TIME API**: New /api/jobs/:id/steps endpoint for detailed step tracking with time estimates
-- **END-TO-END VISIBILITY**: Complete progress tracking from Fly.io → Modal → frontend
+- **END-TO-END VISIBILITY**: Complete progress tracking from Railway → Modal → frontend
 
 ### 🔧 CRITICAL DATABASE FIXES
 - **COLUMN MISMATCH RESOLUTION**: Fixed `result_url` → `results_url` and `error` → `error_message` mismatches
@@ -80,7 +80,7 @@ _Last updated: 2025-08-12_
 ## ✅ COMPLETED MILESTONES
 
 ### 🔄 FEATURE: Modal GPU Offload Integration (2025-07-10)
-- **ACHIEVEMENT**: Successfully integrated Modal GPU processing with Fly.io orchestration
+- **ACHIEVEMENT**: Successfully integrated Modal GPU processing with Railway orchestration
 - **CONFIGURATION**: Uses Modal app `youtube-transcription` with function `transcribe_youtube`
 - **ROUTING**: Automatic detection of Modal credentials for intelligent job routing
 - **FALLBACK**: Graceful degradation to local processing when Modal unavailable
@@ -99,7 +99,7 @@ _Last updated: 2025-08-12_
 <!-- Fly.io runtime stability section removed due to full migration -->
 - **ISSUE RESOLVED**: Fly backend crashes due to missing `jade` runtime for Modal SDK
 - **SOLUTION**: Added `jade@1.11.0` to dependencies and regenerated lockfile
-- **RESULT**: Stable Fly.io deployment with Modal integration working correctly
+- **RESULT**: Stable Railway deployment with Modal integration working correctly
 
 ### 🎵 Complete Audio Processing Pipeline ✅
 - **YouTube Download**: yt-dlp with cookie support for authenticated downloads
@@ -216,7 +216,7 @@ Frontend → Railway API → QueueWorker → Modal GPU → Cloudinary → Databa
 ```
 
 ### Key Components
-- **Fly.io**: API orchestration, database management, job queuing
+- **Railway**: API orchestration, database management, job queuing
 - **Modal**: GPU-accelerated transcription processing
 - **Cloudinary**: Result storage and CDN
 - **PostgreSQL**: Job persistence and status tracking
