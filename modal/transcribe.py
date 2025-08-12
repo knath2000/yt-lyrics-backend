@@ -467,9 +467,9 @@ def upload_to_cloudinary(file_path: Path, public_id: str, resource_type: str = "
 @modal.fastapi_endpoint(method="POST")
 def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
     """
-    CORRECT ARCHITECTURE: Fly.io downloads first, Modal processes
-    - If audio_url provided: Fly.io successfully downloaded, use that audio
-    - If audio_url is None: Fly.io download failed, Modal attempts download as fallback
+    CORRECT ARCHITECTURE: Railway downloads first, Modal processes
+    - If audio_url provided: Railway successfully downloaded, use that audio
+    - If audio_url is None: Railway download failed, Modal attempts download as fallback
     """
     
     # Extract parameters from request data
@@ -526,28 +526,28 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            # STEP 1: Get audio (either from Fly.io or download as fallback)
+            # STEP 1: Get audio (either from Railway or download as fallback)
             if audio_url:
-                # Fly.io successfully downloaded and uploaded audio
-                update_progress(10, "[Modal] Using audio from Fly.io download...")
-                print(f"[Modal] Using pre-downloaded audio from Fly.io: {audio_url}")
+                # Railway successfully downloaded and uploaded audio
+                update_progress(10, "[Modal] Using audio from Railway download...")
+                print(f"[Modal] Using pre-downloaded audio from Railway: {audio_url}")
                 
                 # Download the audio from Cloudinary
                 response = requests.get(audio_url)
                 if response.status_code == 200:
-                    audio_path = temp_path / "audio_from_flyio.mp3"
+                    audio_path = temp_path / "audio_from_railway.mp3"
                     with open(audio_path, 'wb') as f:
                         f.write(response.content)
                     print(f"[Modal] Downloaded audio from Cloudinary: {audio_path}")
                 else:
                     raise Exception(f"Failed to download audio from Cloudinary: {response.status_code}")
                     
-                update_progress(20, "[Modal] Audio received from Fly.io")
+                update_progress(20, "[Modal] Audio received from Railway")
                 
             else:
-                # Fly.io download failed, Modal attempts download as fallback
-                update_progress(10, "[Modal] Fly.io download failed, attempting fallback download...")
-                print(f"[Modal] Fly.io download failed ({fly_download_error}), attempting fallback download...")
+                # Railway download failed, Modal attempts download as fallback
+                update_progress(10, "[Modal] Railway download failed, attempting fallback download...")
+                print(f"[Modal] Railway download failed ({fly_download_error}), attempting fallback download...")
                 
                 # Check Cloudinary cache first
                 cache_public_id = f"audio/{video_id}/bestaudio_mp3"

@@ -11,6 +11,16 @@
 
 ### Multi-Tier Fallback Strategy
 **Pattern: Resilient External Service Integration**
+<<<<<<< HEAD
+=======
+### Explicit Player-Client Switching (yt-dlp)
+**Pattern: Auth/Unauth Client Sequencing**
+- Attempt authenticated clients (`tv`, `ios`, `web`) first when cookies exist, then unauthenticated equivalents.
+- Use temporary cookie files hydrated from `YOUTUBE_COOKIES_CONTENT` or startup cookie jar.
+- Log full command and stderr for failed attempts to speed diagnosis.
+- Rationale: YouTube client-specific behavior changes frequently; explicit client selection increases success rate.
+
+>>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
 - YtDlpDownloader implements 4-tier fallback: authenticated/unauthenticated × m4a/best formats
 - Each tier has specific error handling and timeout configurations
 - Graceful degradation when authentication or preferred formats fail
@@ -24,6 +34,15 @@
 - *Rationale:* Balances quality vs reliability based on available server resources
 
 ## Frontend-Backend Integration Patterns
+<<<<<<< HEAD
+=======
+### API-Driven GPU Offload
+**Pattern: Public Function Endpoint with Progress Mapping**
+- Submit jobs to a serverless GPU endpoint via HTTPS; stream or poll progress into DB and expose via `/progress` and `/steps`.
+- Keep local CPU/GPU fallback path for resilience.
+- Rationale: Decouples orchestration from heavy compute; simplifies credentials by using a public function URL when appropriate.
+
+>>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
 
 ### Real-Time Progress Communication
 **Pattern: Polling with In-Memory State Bridge**

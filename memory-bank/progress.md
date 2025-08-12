@@ -1,8 +1,28 @@
 # Progress - Backend
 
+<<<<<<< HEAD
 _Last updated: 2025-01-11_
 
 ## ✅ BREAKTHROUGH ACHIEVEMENT: Groq Whisper Large-v3 Turbo Integration (2025-01-11)
+=======
+_Last updated: 2025-08-12_
+
+## ✅ BREAKTHROUGH ACHIEVEMENT: Groq Whisper Large-v3 Turbo Integration (2025-01-11)
+## 🧭 RECONCILIATION: Align Docs with Current Code (2025-08-12)
+
+### 🔄 Downloader & Caching
+- **EXPLICIT CLIENTS**: Implemented `authenticated-*` and `unauth-*` yt-dlp methods (tv/ios/web)
+- **COOKIES**: `YOUTUBE_COOKIES_CONTENT` used to enable authenticated methods
+- **CACHE-FIRST**: Cloudinary cache lookup/upload under `audio/{videoId}/bestaudio_mp3`
+
+### ☁️ Modal Offload
+- **WEB ENDPOINT**: QueueWorker submits to Modal public function URL; progress mapped into DB
+- **LOCAL FALLBACK**: OpenAI transcription (`gpt-4o-mini-transcribe`/`gpt-4o-transcribe`) + WhisperX
+
+### 🧱 API & DB
+- **Endpoints**: `/api/jobs`, `/api/jobs/:id`, `/api/jobs/:id/progress`, `/api/jobs/:id/steps`, `/api/jobs/:id/result`
+- **Columns**: `pct`, `status_message`, `current_stage`, `processing_method`, `processing_time_seconds`, `video_id`, `progress_log`
+>>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
 
 ### 🚀 ULTRA-FAST PROCESSING: 15-20x Performance Improvement
 - **GROQ INTEGRATION**: Groq Whisper Large-v3 Turbo achieving 1-2 second transcription times
@@ -32,14 +52,14 @@ _Last updated: 2025-01-11_
 
 ## ✅ MAJOR ACHIEVEMENT: Optimized Modal GPU-First Architecture (2025-01-15)
 
-### 🎯 CURRENT ARCHITECTURE: Streamlined Fly.io + Modal GPU Processing
-- **PRIMARY DEPLOYMENT**: Fly.io backend handles API orchestration and job management
+### 🎯 CURRENT ARCHITECTURE: Railway + Modal GPU Processing
+- **PRIMARY DEPLOYMENT**: Railway handles API orchestration and job management
 - **GPU-FIRST PROCESSING**: All jobs routed directly to Modal GPU for optimal performance
 - **COST OPTIMIZATION**: Pay-per-use GPU processing with automatic scaling
 - **EFFICIENCY GAIN**: Eliminated 95% failure rate from redundant local processing attempts
 
 ### 🔧 Technical Implementation
-- **Fly.io Backend**: 
+- **Railway Backend**: 
   - API endpoints for job creation and status tracking
   - PostgreSQL database for job persistence
   - QueueWorker for job orchestration and routing
@@ -76,7 +96,7 @@ _Last updated: 2025-01-11_
 - **SOLUTION**: Added `git` to apt packages and fallback yt-dlp install
 - **RESULT**: Stable Modal deployments with reliable GPU function availability
 
-### 🔧 CRITICAL: Fly.io Runtime Stability (2025-07-10)
+<!-- Fly.io runtime stability section removed due to full migration -->
 - **ISSUE RESOLVED**: Fly backend crashes due to missing `jade` runtime for Modal SDK
 - **SOLUTION**: Added `jade@1.11.0` to dependencies and regenerated lockfile
 - **RESULT**: Stable Fly.io deployment with Modal integration working correctly
@@ -98,13 +118,13 @@ _Last updated: 2025-01-11_
 
 ### Production Readiness: 95% ✅
 - **Core Functionality**: Stable transcription pipeline with GPU acceleration
-- **Deployment**: Fly.io + Modal architecture operational and tested
+- **Deployment**: Railway + Modal architecture operational and tested
 - **Performance**: Significantly improved processing times with GPU acceleration
 - **Reliability**: Dual-path processing ensures high availability
 - **Cost Efficiency**: Optimized GPU usage reduces operational costs
 
 ### Technical Stack Details
-- **Stage 1: API & Job Management (Fly.io)**
+- **Stage 1: API & Job Management (Railway)**
   - Express.js API with CORS and rate limiting
   - PostgreSQL database with connection pooling
   - QueueWorker for job orchestration
@@ -134,8 +154,8 @@ _Last updated: 2025-01-11_
 - **Limitations**: Single point of failure, limited scaling
 - **Status**: Deprecated
 
-### Phase 2: Optimized Fly.io + Modal GPU-First (Current) ✅
-- **Platforms**: Fly.io (orchestration) + Modal (GPU processing)
+### Phase 2: Optimized Railway + Modal GPU-First (Current) ✅
+- **Platforms**: Railway (orchestration) + Modal (GPU processing)
 - **Benefits**: Direct GPU routing, eliminated redundant failures, 50-70% faster processing
 - **Status**: Production ready and optimized
 
@@ -192,8 +212,7 @@ _Last updated: 2025-01-11_
 
 ### Current Flow
 ```
-Frontend → Fly.io API → QueueWorker → Modal GPU → Cloudinary → Database → Frontend
-                                   (Direct GPU routing - no local fallback attempts)
+Frontend → Railway API → QueueWorker → Modal GPU → Cloudinary → Database → Frontend
 ```
 
 ### Key Components
