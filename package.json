@@ -6,11 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "npx tsc -p .",
-<<<<<<< HEAD
-    "start": "exec node dist/index.js"
-=======
     "start": "node dist/index.js"
->>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
   },
   "dependencies": {
     "axios": "^1.6.7",

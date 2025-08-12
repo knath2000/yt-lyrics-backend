@@ -96,9 +96,5 @@ EXPOSE $PORT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-4000}/health || exit 1
 
-# Start the application
-<<<<<<< HEAD
-CMD ["npm", "start"]
-=======
+# Start the application (let CMD call node directly; Railway Start Command can be empty)
 CMD ["node", "dist/index.js"]
->>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
