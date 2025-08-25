@@ -19,37 +19,6 @@ const cookieFilePath = initializeCookieJar();
 
 const app = express();
 
-<<<<<<< HEAD
-// CORS configuration for frontend access
-const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'https://vercel.app',
-    'https://*.vercel.app',
-    'https://youtube-lyrics-frontend.vercel.app',
-    'https://yt-lyrics-backend.onrender.com',
-    'https://*.onrender.com',
-  ],
-  credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-
-// For development, use permissive CORS. For production, use specific origins
-const isDevelopment = process.env.NODE_ENV !== 'production';
-if (isDevelopment) {
-  app.use(cors({
-    origin: true,
-    credentials: true,
-    optionsSuccessStatus: 200,
-  }));
-} else {
-  app.use(cors(corsOptions));
-}
-=======
 // CORS configuration for frontend access (function/regex allowlist)
 const allowedOriginPatterns: (RegExp | string)[] = [
   /^https?:\/\/localhost(?::\d+)?$/,
@@ -75,7 +44,6 @@ const corsOptions: cors.CorsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
->>>>>>> 339124e (fix(runtime): remove 'exec' from start; Dockerfile CMD node dist/index.js; robust CORS (regex allowlist + OPTIONS))
 
 app.use(express.json());
 
