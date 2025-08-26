@@ -1,12 +1,13 @@
 # Technical Context - Backend
 
-_Last updated: 2025-08-12_
+_Last updated: 2025-08-25_
 
 This document is reconciled to the current codebase and deployment state.
 
 ## Deployment Architecture
 
 - **Railway (primary for frontend usage)**: `https://web-production-5905c.up.railway.app`
+- **Modal GPU Endpoint**: `https://knath2000--youtube-transcription-transcribe-youtube.modal.run`
 <!-- Fly.io deployment deprecated; fully migrated to Railway/Modal -->
 
 Both expose the same API surface. The frontend defaults to the Railway host and can override via env.
@@ -17,6 +18,8 @@ Both expose the same API surface. The frontend defaults to the Railway host and 
 - **Python toolchain** for `yt-dlp`, `demucs`, and `whisperx`
 - **PostgreSQL** for job persistence
 - **Cloudinary** for result storage (JSON/SRT)
+- **TypeScript** for build-time type checking and compilation
+- **Modal** for GPU-accelerated transcription processing
 
 ## Audio Processing Pipeline
 
@@ -68,15 +71,22 @@ FRONTEND_ORIGIN="https://your-frontend.vercel.app"  # Additional CORS allowlist 
 
 ## CORS
 
-Regex/string allowlist with optional `FRONTEND_ORIGIN`; `OPTIONS` handled.
+Regex/string allowlist with optional `FRONTEND_ORIGIN`; `OPTIONS` handled. Current configuration includes:
+- Localhost development
+- Vercel deployments (*.vercel.app)
+- Render deployments (*.onrender.com)
+- Custom frontend origin via FRONTEND_ORIGIN environment variable
 
 ## Performance & Reliability
 
 - Cache-first audio lookup in Cloudinary
 - In-memory progress bridge + DB persistence
 - Graceful shutdown and cleanup of worker resources
+- TypeScript compilation for build-time error checking
 
 ## Development & Deployment
 
-- `npm run build` then container deploy (Railway/Fly)
+- `npm run build` then container deploy (Railway)
 - Health checks validate DB connectivity and table setup
+- Multi-stage Docker build with Python and Node.js stages
+- Production deployment uses `node dist/index.js` as entrypoint
