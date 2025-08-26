@@ -4,7 +4,8 @@ import { logger } from "./utils/logger.js";
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // Let the connection string handle SSL requirements
+  // NeonDB includes sslmode=require in the connection string
 });
 
 export async function safeDbQuery(text: string, params?: any[]) {

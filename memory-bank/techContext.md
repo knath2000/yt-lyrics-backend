@@ -57,7 +57,7 @@ GPU offload to Modal is performed via a public web endpoint from the queue worke
 ```bash
 # Required
 OPENAI_API_KEY=...               # Transcription
-DATABASE_URL=...                 # PostgreSQL
+DATABASE_URL=postgresql://username:password@host:port/database_name?sslmode=require  # PostgreSQL (NeonDB)
 CLOUDINARY_URL=cloudinary://...  # Cloudinary
 PORT=4000
 

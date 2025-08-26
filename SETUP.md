@@ -7,8 +7,9 @@ Copy `.env.example` to `.env` and configure the following variables:
 ### Required
 
 - `DATABASE_URL`: PostgreSQL connection string
-  - Format: `postgresql://username:password@host:port/database`
-  - Example: `postgresql://user:pass@localhost:5432/transcribe_db`
+  - Format: `postgresql://username:password@host:port/database?sslmode=require`
+  - Example: `postgresql://user:pass@neon-host:5432/transcribe_db?sslmode=require`
+  - **Note**: NeonDB requires `sslmode=require` for secure connections
 
 - `CLOUDINARY_URL`: Cloudinary configuration URL
   - Format: `cloudinary://api_key:api_secret@cloud_name`
