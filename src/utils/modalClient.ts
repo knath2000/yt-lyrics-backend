@@ -22,6 +22,14 @@ export interface ModalProgressUpdate {
   stage?: string;
 }
 
+export interface ModalJobInput {
+  youtube_url: string;
+  audio_url?: string | null; // Railway-downloaded audio URL (can be null)
+  job_id: string;
+  openai_model: string;
+  download_error?: string | null; // Error from Railway download attempt
+}
+
 export class ModalClient {
   private appName: string;
   private functionName: string;
@@ -45,13 +53,24 @@ export class ModalClient {
     this.modalEndpoint = `https://${workspace}--${safeAppName}-${safeFunctionName}.modal.run`;
   }
 
-  async submitJob(input: any, progressCallback?: (update: ModalProgressUpdate) => void): Promise<ModalJobResult> {
+  async submitJob(input: ModalJobInput, progressCallback?: (update: ModalProgressUpdate) => void): Promise<ModalJobResult> {
     try {
       console.log(`🚀 Calling Modal function at: ${this.modalEndpoint}`);
+      console.log(`📋 Modal input parameters:`, {
+        youtube_url: input.youtube_url,
+        audio_url: input.audio_url,
+        job_id: input.job_id,
+        openai_model: input.openai_model,
+        download_error: input.download_error
+      });
       
       // Modal functions expect parameters as top-level properties in the JSON body
       const modalPayload = {
         youtube_url: input.youtube_url,
+        audio_url: input.audio_url,
+        job_id: input.job_id,
+        openai_model: input.openai_model,
+        download_error: input.download_error,
         auto_terminate: true
       };
       

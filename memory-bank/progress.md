@@ -1,22 +1,18 @@
 # Progress - Backend
 
-_Last updated: 2025-08-25_
+_Last updated: 2025-08-26_
 
-## ✅ BREAKTHROUGH ACHIEVEMENT: Groq Whisper Large-v3 Turbo Integration (2025-01-11)
-## 🧭 RECONCILIATION: Align Docs with Current Code (2025-08-12)
+## ✅ NEONDB MIGRATION INITIATED
+- **DATABASE MIGRATION**: Started migration from Railway PostgreSQL to NeonDB for improved performance and scalability
+- **CODE UPDATES**: Modified [`src/db.ts`](src/db.ts) to remove environment-based SSL configuration
+- **SSL CONFIGURATION**: Now relying on NeonDB connection string's `sslmode=require` parameter
+- **DOCUMENTATION**: Updated [`.env.example`](.env.example), [`SETUP.md`](SETUP.md), and [`memory-bank/techContext.md`](memory-bank/techContext.md) for NeonDB
 
-### 🔄 Downloader & Caching
-- **EXPLICIT CLIENTS**: Implemented `authenticated-*` and `unauth-*` yt-dlp methods (tv/ios/web)
-- **COOKIES**: `YOUTUBE_COOKIES_CONTENT` used to enable authenticated methods
-- **CACHE-FIRST**: Cloudinary cache lookup/upload under `audio/{videoId}/bestaudio_mp3`
-
-### ☁️ Modal Offload
-- **WEB ENDPOINT**: QueueWorker submits to Modal public function URL; progress mapped into DB
-- **LOCAL FALLBACK**: OpenAI transcription (`gpt-4o-mini-transcribe`/`gpt-4o-transcribe`) + WhisperX
-
-### 🧱 API & DB
-- **Endpoints**: `/api/jobs`, `/api/jobs/:id`, `/api/jobs/:id/progress`, `/api/jobs/:id/steps`, `/api/jobs/:id/result`
-- **Columns**: `pct`, `status_message`, `current_stage`, `processing_method`, `processing_time_seconds`, `video_id`, `progress_log`
+## ⚠️ CURRENT BLOCKING ISSUE
+- **DEPLOYMENT FAILURE**: Backend returning 502 errors with ECONNRESET database connection failures
+- **ROOT CAUSE**: `DATABASE_URL` environment variable in Railway still points to Railway PostgreSQL instead of NeonDB
+- **EVIDENCE**: Logs show connections to `maglev.proxy.rlwy.net:38132` instead of NeonDB host
+- **RESOLUTION NEEDED**: Update Railway environment variables with NeonDB connection string
 
 ## 🚀 ULTRA-FAST PROCESSING: 15-20x Performance Improvement
 - **GROQ INTEGRATION**: Groq Whisper Large-v3 Turbo achieving 1-2 second transcription times
@@ -94,18 +90,17 @@ _Last updated: 2025-08-25_
 - **FALLBACK**: Graceful degradation to local processing when Modal unavailable
 
 ### 🔐 FEATURE: YouTube Cookie Authentication (2025-07-10)
-- **IMPLEMENTATION**: QueueWorker initializes cookie jar from `YOUTUBE_COOKIES_CONTENT` Fly secret
+- **IMPLEMENTATION**: QueueWorker initializes cookie jar from `YOUTUBE_COOKIES_CONTENT` secret
 - **BENEFIT**: Enables authenticated yt-dlp download strategies for age-restricted content
 - **IMPACT**: Dramatically improved success rates for YouTube downloads
-- **CONFIGURATION**: Requires Fly secret with browser cookies in Netscape format
+- **CONFIGURATION**: Requires secret with browser cookies in Netscape format
 
 ### 🛠️ ENHANCEMENT: Modal Deployment Stability (2025-07-09)
 - **ISSUE RESOLVED**: Modal image build failures due to missing `git` dependency
 - **SOLUTION**: Added `git` to apt packages and fallback yt-dlp install
 - **RESULT**: Stable Modal deployments with reliable GPU function availability
 
-<!-- Fly.io runtime stability section removed due to full migration -->
-- **ISSUE RESOLVED**: Fly backend crashes due to missing `jade` runtime for Modal SDK
+- **ISSUE RESOLVED**: Runtime crashes due to missing `jade` runtime for Modal SDK
 - **SOLUTION**: Added `jade@1.11.0` to dependencies and regenerated lockfile
 - **RESULT**: Stable Railway deployment with Modal integration working correctly
 
@@ -229,3 +224,10 @@ Frontend → Railway API → QueueWorker → Modal GPU → Cloudinary → Databa
 - **Cloudinary**: Result storage and CDN
 - **PostgreSQL**: Job persistence and status tracking
 - **QueueWorker**: Intelligent job routing and progress tracking
+
+## IMMEDIATE NEXT STEPS
+
+1. **Update Railway Environment Variables**: Set `DATABASE_URL` to NeonDB connection string
+2. **Monitor Redeployment**: Watch for successful backend startup after environment variable update
+3. **Test Connectivity**: Verify database connection and API endpoints
+4. **Full System Test**: Ensure end-to-end functionality with NeonDB database

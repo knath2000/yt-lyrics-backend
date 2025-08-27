@@ -1,102 +1,95 @@
 # Active Context - Backend
 
-_Last updated: 2025-08-25_
+_Last updated: 2025-08-26_
 
 ## Current Focus
-- **✅ DEPLOYMENT STABILITY**: Resolved Railway deployment issues and database connectivity
-- **✅ BUILD RELIABILITY**: Fixed TypeScript compilation and dependency issues
-- **✅ CORS CONFIGURATION**: Enhanced CORS with regex-based origin matching and environment variable support
-- **✅ GROQ ULTRA-FAST PROCESSING**: Groq Whisper Large-v3 Turbo integration achieving 15-20x performance improvement
-- **✅ COMPREHENSIVE STATUS TRACKING**: End-to-end progress visibility from Railway → Modal → frontend
-- **✅ MODAL WORKER DEPLOYMENT**: Successfully deployed and tested Modal GPU worker
+- **🚧 NEONDB MIGRATION**: Migrating from Railway PostgreSQL to NeonDB for improved performance and scalability
+- **✅ DATABASE CONFIGURATION**: Updated codebase for NeonDB compatibility with SSL configuration changes
+- **⚠️ DEPLOYMENT BLOCKED**: Backend failing with 502 errors due to DATABASE_URL environment variable not updated in Railway
+- **✅ DOCUMENTATION UPDATES**: Revised .env.example, SETUP.md, and techContext.md for NeonDB requirements
+- **✅ MODAL WORKER REDEPLOYED**: Modal GPU worker successfully redeployed and operational
 
 ## Current Deployment Status
 
 <!-- Fly.io deployment removed; Railway/Modal only -->
-- **Status**: 🟢 Active – Railway deployment stable with PostgreSQL database integration
-- **Database**: Uses PostgreSQL database via `DATABASE_URL` Railway environment variable
-- **Build Process**: TypeScript compilation successful with proper dev dependencies
-- **Health**: `/health` endpoint checks every 30s with database connectivity validation
-- **GPU Processing**: Primary path via Modal with Groq Whisper Large-v3 Turbo
-- **Modal Endpoint**: `https://knath2000--youtube-transcription-transcribe-youtube.modal.run`
+- **Status**: 🟡 Blocked – Backend returning 502 errors due to database connection issues
+- **Database**: Migration to NeonDB in progress, but DATABASE_URL not updated in Railway environment variables
+- **Current Connection**: Backend still attempting to connect to Railway PostgreSQL (maglev.proxy.rlwy.net:38132)
+- **Target Connection**: Should connect to NeonDB at ep-lingering-glade-a8y3gnh7-pooler.eastus2.azure.neon.tech
+- **Health**: `/health` endpoint failing with ECONNRESET errors during database setup
+- **GPU Processing**: Modal endpoint operational at `https://knath2000--youtube-transcription-transcribe-youtube.modal.run`
 
-## Latest Session Achievements (2025-08-25)
+## Latest Session Achievements (2025-08-26)
 
-### ✅ MODAL WORKER DEPLOYMENT
-- **SUCCESSFUL DEPLOYMENT**: Deployed Modal worker (`modal/transcribe.py`) with all dependencies
-- **ENDPOINT LIVE**: Modal function available at `https://knath2000--youtube-transcription-transcribe-youtube.modal.run`
-- **SECURES CONFIGURED**: All required secrets verified (`cloudinary-config`, `openai-api-key`, `groq-api-key`, `youtube-cookies`)
-- **TESTED CONNECTIVITY**: Endpoint responds correctly with proper error handling for YouTube authentication
-- **DEPENDENCY FIX**: Installed missing `requests` package for successful deployment
+### ✅ NEONDB MIGRATION PREPARATION
+- **CODE UPDATES**: Modified [`src/db.ts`](src/db.ts) to remove environment-based SSL configuration
+- **SSL CONFIGURATION**: Now relying on NeonDB connection string's `sslmode=require` parameter
+- **CONNECTION POOLING**: Maintained PostgreSQL connection pooling compatibility with NeonDB
+- **DEPLOYMENT READY**: Code changes committed and pushed to trigger Railway redeployment
 
-### ✅ RAILWAY DEPLOYMENT STABILIZATION
-- **MERGE CONFLICT RESOLUTION**: Fixed CORS configuration conflict in src/index.ts with regex-based origin matching
-- **TYPESCRIPT DEPENDENCY**: Added TypeScript as dev dependency to ensure successful builds
-- **DATABASE INTEGRATION**: Configured PostgreSQL database on Railway, resolving ECONNREFUSED errors
-- **BUILD VERIFICATION**: Confirmed TypeScript compilation and Docker build process working correctly
+### ✅ DOCUMENTATION UPDATES
+- **ENVIRONMENT EXAMPLE**: Updated [`.env.example`](.env.example) with NeonDB connection format
+- **SETUP GUIDE**: Revised [`SETUP.md`](SETUP.md) to include NeonDB-specific instructions
+- **TECHNICAL CONTEXT**: Enhanced [`memory-bank/techContext.md`](memory-bank/techContext.md) with NeonDB configuration details
+- **CONSISTENCY**: All documentation now reflects NeonDB as the primary database solution
 
-### ✅ ENHANCED CORS CONFIGURATION
-- **REGEX-BASED ORIGIN MATCHING**: Support for localhost, Vercel, Render, and custom origins
-- **ENVIRONMENT VARIABLE SUPPORT**: `FRONTEND_ORIGIN` for additional allowed origins
-- **OPTIONS HANDLING**: Proper CORS preflight request support
-- **SECURITY**: Maintained credentials support with proper origin validation
+### ✅ MODAL WORKER REDEPLOYMENT
+- **SUCCESSFUL DEPLOYMENT**: Redeployed Modal worker (`modal/transcribe.py`) with current dependencies
+- **ENDPOINT VERIFIED**: Modal function available at `https://knath2000--youtube-transcription-transcribe-youtube.modal.run`
+- **GPU PROCESSING READY**: Modal worker operational and waiting for backend connectivity
 
-### ✅ GROQ WHISPER LARGE-V3 TURBO INTEGRATION
-- **PERFORMANCE BREAKTHROUGH**: 15-20x speed improvement (1-2s vs 60-90s processing time)
-- **IMPLEMENTATION**: Integrated Groq API with fallback to Faster-Whisper for reliability
-- **WORD TIMESTAMPS**: Groq provides precise word-level timestamps, eliminating need for WhisperX alignment
-- **SECURITY**: Properly configured `GROQ_API_KEY` Modal secret, removed hardcoded keys
-- **ERROR HANDLING**: Fixed Groq API response parsing for both dict and object formats
+## Current Blocking Issue
 
-### ✅ COMPREHENSIVE STATUS TRACKING SYSTEM
-- **ENHANCED MODAL PROGRESS**: Detailed progress logging with timestamps and processing stages
-- **ADVANCED QUEUE WORKER**: ProcessingStep interface with status, percentage, message, timestamp, duration
-- **DATABASE SCHEMA ENHANCEMENT**: Added columns for pct, status_message, current_stage, processing_method, processing_time_seconds, video_id, progress_log (JSONB)
-- **REAL-TIME API**: New /api/jobs/:id/steps endpoint for detailed step tracking with time estimates
-- **PROGRESS MAPPING**: Modal progress (30%-95%) mapped to overall job progress with comprehensive metadata
+### 🚨 DATABASE CONNECTION FAILURE
+- **SYMPTOMS**: Backend returning 502 errors with ECONNRESET and "Connection terminated unexpectedly"
+- **ROOT CAUSE**: `DATABASE_URL` environment variable in Railway still points to Railway PostgreSQL instead of NeonDB
+- **EVIDENCE**: Logs show connections to `maglev.proxy.rlwy.net:38132` instead of NeonDB host
+- **IMPACT**: Application cannot start or process requests due to database connection failures
 
-### ✅ CRITICAL DATABASE FIXES
-- **COLUMN MISMATCH RESOLUTION**: Fixed `result_url` → `results_url` and `error` → `error_message` column name issues
-- **FRONTEND COMPLETION**: Resolved frontend stuck at 95% by ensuring proper database updates
-- **API CONSISTENCY**: Updated jobs API routes to use correct column names matching schema
-- **QUEUE WORKER FIXES**: All database operations now use proper column names preventing PostgreSQL errors
-
-### ✅ CLOUDINARY CACHE OPTIMIZATION
-- **INTELLIGENT CACHE CHECKING**: Worker checks Cloudinary cache before attempting YouTube downloads
-- **REDUNDANCY ELIMINATION**: Skips yt-dlp download if audio already cached in Cloudinary
-- **PERFORMANCE BOOST**: Immediate processing for previously downloaded content
-- **PROGRESS TRANSPARENCY**: Clear messaging about cache hits vs new downloads
+### REQUIRED ACTION
+1. **Update Railway Environment Variables**: Set `DATABASE_URL` to NeonDB connection string:
+   ```
+   postgresql://neondb_owner:npg_wuGxVlH7npM5@ep-lingering-glade-a8y3gnh7-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require
+   ```
+2. **Redeploy Backend**: Railway should auto-redeploy on environment variable changes
+3. **Verify Connectivity**: Test database connection and health endpoint functionality
 
 ## Technical Stack Details (Current State)
 
-### Ultra-Fast Audio Processing Pipeline
-- **Stage 1: Download Orchestration (Railway)** 
-  - **Cache Check**: Intelligent Cloudinary cache verification before download attempts
-  - **YouTube Download**: Authenticated yt-dlp download with cookie support
-  - **Audio Upload**: Successful downloads uploaded to Cloudinary for Modal access
-  - **Fallback Coordination**: Failed downloads trigger Modal fallback processing
+### Database Migration Status
+- **Current**: Railway PostgreSQL (maglev.proxy.rlwy.net:38132) - Connection failing
+- **Target**: NeonDB (ep-lingering-glade-a8y3gnh7-pooler.eastus2.azure.neon.tech) - Ready for connection
+- **SSL Configuration**: Code updated to rely on connection string SSL parameters
+- **Connection Pooling**: Compatible with NeonDB's connection pooler
 
-- **Stage 2: GPU Processing (Modal)**
-  - **PRIMARY: Groq Whisper Large-v3 Turbo**: Ultra-fast transcription (1-2 seconds)
-  - **FALLBACK: Faster-Whisper**: GPU-optimized transcription with local models
-  - **Demucs**: GPU-accelerated vocal separation for better transcription quality
-  - **Conditional Alignment**: WhisperX only for Faster-Whisper (Groq provides word timestamps)
-  - **Result Upload**: Direct upload to Cloudinary from Modal with comprehensive metadata
+### Deployment Readiness
+- **Backend Code**: Updated and committed to GitHub
+- **Railway Deployment**: Triggered but failing due to database configuration
+- **Modal Worker**: Operational and ready for requests
+- **Frontend**: Unaffected by database changes, ready to connect to backend
 
-- **Stage 3: Result Coordination (Railway)**
-  - **Database Update**: Comprehensive job status and metadata updates with correct column names
-  - **Frontend Access**: Real-time progress API with detailed step tracking
-  - **Progress Tracking**: End-to-end visibility with processing method identification
+## Next Steps
 
-### Performance Metrics (Current)
-- **Groq Processing**: 1-2 seconds for typical 3-4 minute songs (15-20x improvement)
-- **Faster-Whisper Fallback**: ~30-45 seconds for same content
-- **Cache Hits**: Immediate processing for previously downloaded content
-- **Overall Pipeline**: 60-90 seconds total (including download and upload) vs previous 60-90s for transcription alone
+### Immediate Actions (When Resuming)
+1. **Update Railway Environment Variables**: Set correct `DATABASE_URL` for NeonDB
+2. **Monitor Redeployment**: Watch for successful backend startup
+3. **Test Connectivity**: Verify database connection and API endpoints
+4. **Full System Test**: Ensure end-to-end functionality with NeonDB
 
-### Database Integration
-- **PostgreSQL**: Persistent job storage with comprehensive status tracking
-- **Connection Pooling**: Efficient database connection management
-- **Enhanced Schema**: Includes processing_method, processing_time_seconds, video_id, progress_log
-- **Result Storage**: Cloudinary URLs stored in `results_url` field (fixed column name)
-- **Error Handling**: Comprehensive error logging in `error_message` field (fixed column name)
+### Completion Criteria
+- ✅ Backend health endpoint responding successfully
+- ✅ Database queries executing without connection errors
+- ✅ Frontend able to submit jobs and receive results
+- ✅ Modal worker processing jobs through backend coordination
+
+## Technical Debt: MINIMAL
+
+### Code Quality ✅
+- **TypeScript**: Full type safety with proper database configuration
+- **Error Handling**: Comprehensive error logging for connection issues
+- **Documentation**: Updated to reflect current architecture and requirements
+
+### Deployment Readiness ✅
+- **Infrastructure**: Code changes complete and deployed
+- **Configuration**: Environment variable update needed in Railway
+- **Monitoring**: Ready to observe deployment results and connection success
