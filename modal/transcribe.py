@@ -585,6 +585,8 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
                     
                     # PRESERVE EXACT YT-DLP IMPLEMENTATION AS FALLBACK
                     output_path = temp_path / "downloaded_audio.%(ext)s"
+                    
+                    # Prepare yt-dlp command with cookie support
                     cmd = [
                         "yt-dlp",
                         "--extract-audio",
@@ -594,10 +596,41 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
                         "--no-warnings",
                         "--quiet",
                         "--output", str(output_path),
-                        youtube_url
                     ]
                     
+                    # Add cookie support if YOUTUBE_COOKIES_CONTENT is available
+                    cookie_file_path = None
+                    if os.environ.get("YOUTUBE_COOKIES_CONTENT"):
+                        try:
+                            # Create temporary cookie file from environment variable
+                            import base64
+                            cookies_content = os.environ.get("YOUTUBE_COOKIES_CONTENT")
+                            if cookies_content:
+                                # Decode if base64 encoded
+                                try:
+                                    decoded_cookies = base64.b64decode(cookies_content).decode('utf-8')
+                                except:
+                                    decoded_cookies = cookies_content
+                                
+                                cookie_file_path = temp_path / "youtube_cookies.txt"
+                                with open(cookie_file_path, 'w') as f:
+                                    f.write(decoded_cookies)
+                                
+                                cmd.extend(["--cookies", str(cookie_file_path)])
+                                print("[Modal] Using cookies for fallback download")
+                        except Exception as cookie_error:
+                            print(f"[Modal] Cookie setup warning: {cookie_error}")
+                    
+                    cmd.append(youtube_url)
+                    
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                    
+                    # Clean up temporary cookie file
+                    if cookie_file_path and cookie_file_path.exists():
+                        try:
+                            cookie_file_path.unlink()
+                        except:
+                            pass
                     
                     if result.returncode != 0:
                         raise Exception(f"Modal fallback yt-dlp failed: {result.stderr}")
