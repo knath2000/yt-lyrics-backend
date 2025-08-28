@@ -44,9 +44,6 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install([
     
     # Set up Chrome for headless browsing
     "which chromedriver && chmod +x $(which chromedriver) || echo 'ChromeDriver not found, will use webdriver-manager'",
-]).run_commands([
-    # Install latest yt-dlp with fallback - PRESERVE EXACT IMPLEMENTATION
-    "pip install --upgrade --force-reinstall git+https://github.com/yt-dlp/yt-dlp.git || pip install --upgrade --force-reinstall yt-dlp",
 ])
 
 app = modal.App("youtube-transcription")
@@ -469,196 +466,78 @@ def upload_to_cloudinary(file_path: Path, public_id: str, resource_type: str = "
         print(f"Cloudinary upload error: {e}")
         return None
 
-def validate_cookies(cookie_content: str) -> bool:
-    """Validate cookie format and content"""
-    if not cookie_content or len(cookie_content.strip()) == 0:
-        print("[Modal] ERROR: Empty or None cookie content")
-        return False
-    
-    # Check if it's a valid Netscape cookie format
+def validate_cookies(cookie_content):
+    """Validate Netscape cookie format and expiration"""
     lines = cookie_content.strip().split('\n')
-    valid_lines = 0
+    valid_cookies = []
     
     for line in lines:
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
+        if line.strip() and not line.startswith('#'):
+            parts = line.split('\t')
+            if len(parts) >= 7:
+                domain, flag, path, secure, expires, name, value = parts[:7]
+                try:
+                    expires_ts = int(expires)
+                    if expires_ts > time.time():  # Not expired
+                        valid_cookies.append(line)
+                except ValueError:
+                    continue
+    
+    return '\n'.join(valid_cookies) if valid_cookies else None
+
+def create_cookie_file(cookie_content, temp_path):
+    """Create secure temporary cookie file"""
+    cookie_file = os.path.join(temp_path, 'youtube_cookies.txt')
+    
+    with open(cookie_file, 'w') as f:
+        f.write(cookie_content)
+    
+    # Set proper permissions
+    os.chmod(cookie_file, 0o600)
+    
+    return cookie_file
+
+def setup_youtube_authentication(temp_path):
+    """Main authentication setup function"""
+    try:
+        # Get base64 encoded cookies from environment
+        b64_cookies = os.getenv('YOUTUBE_COOKIES_B64')
         
-        # Netscape format: domain, flag, path, secure, expiration, name, value
-        parts = line.split('\t')
-        if len(parts) >= 7:
-            try:
-                # Check if expiration is a valid timestamp
-                expiration = int(parts[4])
-                if expiration > 0:  # Not expired
-                    valid_lines += 1
-            except ValueError:
-                continue
-    
-    if valid_lines == 0:
-        print("[Modal] ERROR: No valid cookies found in content")
-        return False
-    
-    print(f"[Modal] Cookie validation successful: {valid_lines} valid cookie(s) found")
-    return True
-
-def decode_cookie_content(cookie_content: str) -> str:
-    """Decode cookie content, handling both plain text and base64"""
-    if not cookie_content:
-        return ""
-    
-    # Try base64 decoding first
-    try:
-        decoded = base64.b64decode(cookie_content).decode('utf-8')
-        print(f"[Modal] Successfully decoded base64 cookies, length: {len(decoded)}")
-        return decoded
-    except Exception as e:
-        print(f"[Modal] Base64 decode failed ({e}), treating as plain text")
-        return cookie_content
-
-def create_cookie_file(cookie_content: str, temp_path: Path) -> Optional[str]:
-    """Create cookie file with comprehensive error handling"""
-    try:
-        # Validate input
-        if not cookie_content:
-            print("[Modal] ERROR: No cookie content provided")
+        if not b64_cookies:
+            print("[Modal] ⚠️ No YOUTUBE_COOKIES_B64 environment variable found")
             return None
         
         # Decode cookies
-        decoded_cookies = decode_cookie_content(cookie_content)
-        
-        # Validate cookie format
-        if not validate_cookies(decoded_cookies):
-            print("[Modal] ERROR: Cookie validation failed")
-            return None
-        
-        # Create unique cookie file name to avoid conflicts
-        cookie_file = temp_path / f"youtube_cookies_{os.getpid()}_{int(time.time())}.txt"
-        
-        # Write cookie file
-        with open(cookie_file, 'w', encoding='utf-8') as f:
-            f.write(decoded_cookies)
-        
-        # Verify file was created and is readable
-        if not cookie_file.exists():
-            print("[Modal] ERROR: Cookie file was not created")
-            return None
-        
-        file_size = cookie_file.stat().st_size
-        if file_size == 0:
-            print("[Modal] ERROR: Cookie file is empty")
-            return None
-        
-        # Set proper permissions (readable by owner only)
-        cookie_file.chmod(0o600)
-        
-        print(f"[Modal] ✅ Cookie file created successfully: {cookie_file} ({file_size} bytes)")
-        
-        # Test file readability
         try:
-            with open(cookie_file, 'r', encoding='utf-8') as f:
-                first_line = f.readline().strip()
-                if first_line:
-                    print(f"[Modal] First cookie line: {first_line[:50]}...")
+            cookie_content = base64.b64decode(b64_cookies).decode('utf-8')
         except Exception as e:
-            print(f"[Modal] ERROR: Cannot read cookie file: {e}")
+            print(f"[Modal] ❌ Failed to decode cookies: {e}")
             return None
         
-        return str(cookie_file)
+        # Validate cookies
+        valid_cookies = validate_cookies(cookie_content)
+        if not valid_cookies:
+            print("[Modal] ❌ No valid cookies found")
+            return None
+        
+        # Create cookie file
+        cookie_file = create_cookie_file(valid_cookies, temp_path)
+        print(f"[Modal] ✅ Created cookie file: {cookie_file}")
+        
+        return cookie_file
         
     except Exception as e:
-        print(f"[Modal] ERROR: Failed to create cookie file: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"[Modal] ❌ Authentication setup failed: {e}")
         return None
-
-def cleanup_cookie_file(cookie_file_path: Optional[str]):
-    """Safely cleanup cookie file"""
-    if cookie_file_path and os.path.exists(cookie_file_path):
-        try:
-            os.unlink(cookie_file_path)
-            print(f"[Modal] ✅ Cookie file cleaned up: {cookie_file_path}")
-        except Exception as e:
-            print(f"[Modal] WARNING: Failed to cleanup cookie file {cookie_file_path}: {e}")
-
-def setup_cookie_authentication(temp_path: Path) -> Optional[str]:
-    """Enhanced YouTube authentication setup with multiple methods"""
-    
-    print("[Modal] 🔐 Setting up YouTube authentication...")
-    
-    # Method 1: Environment variable cookies
-    cookie_content = os.environ.get("YOUTUBE_COOKIES_CONTENT")
-    if cookie_content:
-        print("[Modal] 📋 Found YOUTUBE_COOKIES_CONTENT environment variable")
-        cookie_file = create_cookie_file(cookie_content, temp_path)
-        if cookie_file:
-            print("[Modal] ✅ Cookie authentication setup successful")
-            return cookie_file
-        else:
-            print("[Modal] ❌ Cookie file creation failed")
-    
-    # Method 2: Check for existing cookie file (fallback)
-    existing_cookie_files = list(temp_path.glob("youtube_cookies*.txt"))
-    if existing_cookie_files:
-        cookie_file = str(existing_cookie_files[0])
-        print(f"[Modal] 📋 Using existing cookie file: {cookie_file}")
-        return cookie_file
-    
-    print("[Modal] ⚠️ No authentication method available")
-    return None
 
 def setup_oauth_authentication(credentials) -> Optional[str]:
     """Set up OAuth-based authentication for YouTube"""
-    print("[Modal] Setting up OAuth authentication...")
-    
-    try:
-        # This is a placeholder for OAuth implementation
-        # In a real implementation, you would:
-        # 1. Use the Google API client to authenticate
-        # 2. Get access tokens
-        # 3. Use authenticated requests for downloads
-        
-        print("[Modal] ⚠️ OAuth authentication not fully implemented yet")
-        print("[Modal] This would require Google API credentials and YouTube Data API setup")
-        return None
-        
-    except Exception as e:
-        print(f"[Modal] OAuth setup error: {e}")
-        return None
-
-def download_with_authenticated_request(video_url: str, credentials) -> Optional[Path]:
-    """Download video using authenticated HTTP requests"""
-    print("[Modal] Attempting authenticated download...")
-    
-    try:
-        # This is a placeholder for authenticated download
-        # In a real implementation, you would:
-        # 1. Use OAuth credentials to get access tokens
-        # 2. Make authenticated requests to YouTube
-        # 3. Handle streaming downloads
-        
-        print("[Modal] ⚠️ Authenticated download not implemented yet")
-        return None
-        
-    except Exception as e:
-        print(f"[Modal] Authenticated download error: {e}")
-        return None
+    pass
 
 def setup_browser_automation_authentication() -> Optional[str]:
     """Set up browser automation for authentication"""
-    print("[Modal] Setting up browser automation authentication...")
-    
-    try:
-        # This would require Selenium or Playwright in Modal
-        # For now, this is a placeholder
-        
-        print("[Modal] ⚠️ Browser automation not available in Modal environment")
-        print("[Modal] This would require additional dependencies and browser setup")
-        return None
-        
-    except Exception as e:
-        print(f"[Modal] Browser automation setup error: {e}")
-        return None
+    pass
+
 
 @app.function(
     image=image,
@@ -793,194 +672,29 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
                     # PRESERVE EXACT YT-DLP IMPLEMENTATION AS FALLBACK
                     output_path = temp_path / "downloaded_audio.%(ext)s"
                     
-                    # Prepare yt-dlp command with enhanced cookie support
-                    cmd = [
-                        "yt-dlp",
-                        "--extract-audio",
-                        "--audio-format", "mp3",
-                        "--audio-quality", "0",  # Best quality
-                        "--no-playlist",
-                        "--no-warnings",
-                        "--quiet",
-                        "--output", str(output_path),
-                    ]
-                    
-                    # Enhanced cookie authentication setup
+                    # Setup yt-dlp with enhanced cookie support (similar setup)
                     cookie_file_path = setup_youtube_authentication(temp_path)
                     if cookie_file_path:
-                        cmd.extend(["--cookies", cookie_file_path])
-                        print(f"[Modal] ✅ Using enhanced cookie authentication: {cookie_file_path}")
-                    else:
-                        print("[Modal] ⚠️ No cookie authentication available, proceeding without cookies")
-                    
-                    cmd.append(youtube_url)
-                    
-                    print(f"[Modal] Executing yt-dlp command: {' '.join(cmd)}")
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-                    
-                    # Enhanced error handling and logging
-                    if result.returncode != 0:
-                        print(f"[Modal] ❌ yt-dlp failed with return code {result.returncode}")
-                        print(f"[Modal] STDERR: {result.stderr}")
-                        print(f"[Modal] STDOUT: {result.stdout}")
+                        # Create yt-dlp command with cookies
+                        cmd = [
+                            "yt-dlp",
+                            "--extract-audio",
+                            "--audio-format", "mp3",
+                            "--audio-quality", "0",  # Best quality
+                            "--no-playlist",
+                            "--no-warnings",
+                            "--quiet",
+                            "--output", str(output_path),
+                            "--cookies", str(cookie_file_path)
+                        ]
+                        cmd.append(youtube_url)
                         
-                        # Check for specific error patterns
-                        if "Sign in to confirm" in result.stderr:
-                            print("[Modal] 🚫 Bot detection error detected")
-                        elif "cookies" in result.stderr.lower():
-                            print("[Modal] 🚫 Cookie-related error detected")
+                        print(f"[Modal] Executing yt-dlp with enhanced cookies: {' '.join(cmd)}")
                         
-                        raise Exception(f"Modal fallback yt-dlp failed: {result.stderr}")
-                    
-                    print(f"[Modal] ✅ yt-dlp completed successfully")
-                    
-                    # Enhanced cleanup with error handling
-                    cleanup_cookie_file(cookie_file_path)
-                    
-                    # Find downloaded file
-                    downloaded_files = list(temp_path.glob("downloaded_audio.*"))
-                    if not downloaded_files:
-                        raise Exception("Modal fallback: No audio file downloaded")
-                    
-                    audio_path = downloaded_files[0]
-                    print(f"[Modal] Fallback download successful: {audio_path}")
-                    
-                    # Upload to cache for future use
-                    try:
-                        upload_to_cloudinary(audio_path, cache_public_id, "video")
-                        print(f"[Modal] Audio uploaded to Cloudinary cache")
-                    except Exception as upload_error:
-                        print(f"[Modal] Cache upload warning: {upload_error}")
+                        result = subprocess.run(
+                            cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=300
+                        )
                         
-                    update_progress(20, "[Modal] Fallback download completed")
-            
-            # STEP 2: Vocal separation with Demucs (conservative settings)
-            update_progress(25, "[Modal] Separating vocals with Demucs...")
-            vocals_path = separate_vocals_conservative(audio_path, temp_path)
-            
-            if vocals_path and vocals_path.exists():
-                print("[Modal] Using separated vocals for transcription")
-                transcription_audio = vocals_path
-                update_progress(40, "[Modal] Vocal separation completed")
-            else:
-                print("[Modal] Demucs failed, using original audio")
-                transcription_audio = audio_path
-                update_progress(40, "[Modal] Using original audio")
-            
-            # STEP 3: Enhanced Transcription with Groq (if available) or Faster-Whisper fallback
-            update_progress(45, "[Modal] Starting transcription...", "transcription")
-            
-            # Try Groq first for ultra-fast transcription
-            groq_api_key = os.environ.get("GROQ_API_KEY")
-            transcription_result = None
-            processing_method = "faster_whisper"  # Default fallback
-            
-            if groq_api_key:
-                try:
-                    update_progress(50, "[Modal] Attempting Groq Whisper Large-v3 Turbo...", "transcription")
-                    transcription_result = transcribe_with_groq(transcription_audio, groq_api_key)
-                    processing_method = "groq_whisper"
-                    update_progress(65, "[Modal] Groq transcription completed", "transcription")
-                except Exception as groq_error:
-                    print(f"Groq transcription failed: {groq_error}, falling back to Faster-Whisper")
-                    update_progress(50, "[Modal] Groq failed, using Faster-Whisper fallback...", "transcription")
-            
-            # Fallback to Faster-Whisper if Groq failed or unavailable
-            if not transcription_result:
-                transcription_result = transcribe_with_faster_whisper(transcription_audio)
-                update_progress(65, "[Modal] Faster-Whisper transcription completed", "transcription")
-            
-            # STEP 4: Word alignment with WhisperX (only needed for Faster-Whisper)
-            if processing_method == "groq_whisper":
-                # Groq already provides word-level timestamps, no alignment needed
-                update_progress(70, "[Modal] Groq provides word timestamps, skipping alignment...", "alignment")
-                aligned_result = transcription_result
-                update_progress(85, "[Modal] Using Groq word timestamps", "alignment")
-            else:
-                # Faster-Whisper needs WhisperX for word-level alignment
-                update_progress(70, "[Modal] Aligning word timestamps with WhisperX...", "alignment")
-                aligned_result = align_with_whisperx(transcription_audio, transcription_result, temp_path)
-                update_progress(85, "[Modal] Word alignment completed", "alignment")
-            
-            # STEP 5: Generate final results
-            update_progress(90, "[Modal] Generating final results...", "finalization")
-            final_results = generate_final_results(aligned_result, youtube_url)
-            
-            # STEP 6: Upload results to Cloudinary
-            results_file = temp_path / "results.json"
-            with open(results_file, 'w', encoding='utf-8') as f:
-                json.dump(final_results, f, ensure_ascii=False, indent=2)
-            
-            results_public_id = f"transcriptions/{video_id}/results"
-            results_url = upload_to_cloudinary(results_file, results_public_id, "raw")
-            
-            if not results_url:
-                raise Exception("Failed to upload results to Cloudinary")
-            
-            # Clean up GPU memory
-            cleanup_gpu_memory()
-            
-            # Calculate total processing time
-            total_processing_time = time.time() - start_time
-            
-            # Add completion entry to progress log
-            progress_log.append({
-                "status": "completed",
-                "percentage": 100,
-                "message": "Transcription completed successfully",
-                "timestamp": datetime.now().isoformat(),
-                "duration": round(total_processing_time, 2),
-                "stage": "finalization"
-            })
-            
-            update_progress(100, "[Modal] Transcription completed successfully", "finalization")
-            
-            return {
-                "success": True,
-                "result_url": results_url,  # Match the expected field name
-                "results_url": results_url,  # Keep for compatibility
-                "video_id": video_id,
-                "processing_method": processing_method,
-                "processing_time_seconds": round(total_processing_time, 2),
-                "progress_log": progress_log,
-                "metadata": final_results["metadata"]
-            }
-            
-    except Exception as e:
-        # Add error entry to progress log
-        error_time = time.time() - start_time if 'start_time' in locals() else 0
-        if 'progress_log' in locals():
-            progress_log.append({
-                "status": "error",
-                "percentage": 0,
-                "message": f"Transcription failed: {str(e)}",
-                "timestamp": datetime.now().isoformat(),
-                "duration": round(error_time, 2),
-                "stage": "error"
-            })
-        
-        update_progress(0, f"[Modal] Transcription failed: {str(e)}", "error")
-        print(f"[Modal] Transcription error: {e}")
-        import traceback
-        traceback.print_exc()
-        
-        # Clean up GPU memory even on error
-        cleanup_gpu_memory()
-        
-        return {
-            "success": False,
-            "error": str(e),
-            "video_id": video_id if 'video_id' in locals() else None,
-            "processing_time_seconds": round(error_time, 2),
-            "progress_log": progress_log if 'progress_log' in locals() else []
-        }
-
-# Test function for local development
-@app.local_entrypoint()
-def test_transcription():
-    """Test the transcription function locally"""
-    def test_callback(pct, msg):
-        print(f"Progress: {pct}% - {msg}")
-    
-    result = transcribe_youtube.remote("https://www.youtube.com/watch?v=dQw4w9WgXcQ", test_callback)
-    print("Final result:", result) 
