@@ -51,6 +51,9 @@ class QueueWorker {
     if (process.env.MODAL_TOKEN_ID && process.env.MODAL_TOKEN_SECRET) {
       this.modalClient = new ModalClient();
       console.log("🚀 Modal GPU processing enabled – jobs will be processed on high-performance A10G GPUs");
+      
+      // Test Modal connectivity on startup
+      this.testModalConnectivity();
     } else {
       console.warn("⚠️ Modal GPU processing unavailable – please configure MODAL_TOKEN_ID and MODAL_TOKEN_SECRET for optimal performance");
     }
@@ -395,6 +398,28 @@ class QueueWorker {
   // Public method to get job progress (used by API routes)
   getJobProgress(jobId: string): Job | undefined {
     return jobProgress.get(jobId);
+  }
+
+  /**
+   * Test Modal connectivity and health on startup
+   */
+  private async testModalConnectivity(): Promise<void> {
+    if (!this.modalClient) return;
+
+    try {
+      console.log("🔍 Testing Modal connectivity...");
+      const healthResult = await this.modalClient.healthCheck();
+      
+      if (healthResult.status === "healthy") {
+        console.log(`✅ Modal connectivity test passed: ${healthResult.message}`);
+      } else {
+        console.warn(`⚠️ Modal connectivity test failed: ${healthResult.message}`);
+        console.warn("⚠️ Modal jobs may fail until connectivity is restored");
+      }
+    } catch (error) {
+      console.error("❌ Modal connectivity test error:", error);
+      console.warn("⚠️ Modal jobs may fail until connectivity is restored");
+    }
   }
 }
 

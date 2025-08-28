@@ -36,26 +36,32 @@ export class ModalClient {
   private modalEndpoint: string;
 
   constructor(
-    appName: string = "youtube-transcription",
+    appName: string = "youtube-transcription-v3",
     functionName: string = "transcribe_youtube"
   ) {
     this.appName = appName;
     this.functionName = functionName;
 
-    // Modal endpoint URL format: https://<workspace>--<app-name>-<function-name>.modal.run
-    // Based on Modal docs, the format should be workspace--app-function.modal.run
-    
-    const workspace = "knath2000";
-    const safeAppName = appName.toLowerCase().replace(/_/g, "-");
-    const safeFunctionName = functionName.toLowerCase().replace(/_/g, "-");
-    
-    // Modal URL format: https://workspace--app-function.modal.run
-    this.modalEndpoint = `https://${workspace}--${safeAppName}-${safeFunctionName}.modal.run`;
+    // Use environment variable if available, otherwise construct URL
+    const envEndpoint = process.env.MODAL_ENDPOINT;
+    if (envEndpoint) {
+      this.modalEndpoint = envEndpoint;
+      console.log(`[ModalClient] Using environment endpoint: ${this.modalEndpoint}`);
+    } else {
+      // Fallback to URL construction for backward compatibility
+      const workspace = "knath2000";
+      const safeAppName = appName.toLowerCase().replace(/_/g, "-");
+      const safeFunctionName = functionName.toLowerCase().replace(/_/g, "-");
+
+      // Updated URL format for the deployed web endpoint
+      this.modalEndpoint = `https://${workspace}--${safeAppName}-web-endpoint.modal.run`;
+      console.log(`[ModalClient] Using constructed endpoint: ${this.modalEndpoint}`);
+    }
   }
 
   async submitJob(input: ModalJobInput, progressCallback?: (update: ModalProgressUpdate) => void): Promise<ModalJobResult> {
     try {
-      console.log(`🚀 Calling Modal function at: ${this.modalEndpoint}`);
+      console.log(`🚀 Calling Modal web endpoint at: ${this.modalEndpoint}`);
       console.log(`📋 Modal input parameters:`, {
         youtube_url: input.youtube_url,
         audio_url: input.audio_url,
@@ -64,7 +70,9 @@ export class ModalClient {
         download_error: input.download_error
       });
       
-      // Modal functions expect parameters as top-level properties in the JSON body
+      // Use the web endpoint for transcription
+      const webEndpoint = `${this.modalEndpoint}/transcribe`;
+      
       const modalPayload = {
         youtube_url: input.youtube_url,
         audio_url: input.audio_url,
@@ -74,7 +82,7 @@ export class ModalClient {
         auto_terminate: true
       };
       
-      const response = await fetch(this.modalEndpoint, {
+      const response = await fetch(webEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,4 +140,49 @@ export class ModalClient {
       status: "completed"
     };
   }
-} 
+
+  async healthCheck(): Promise<{ status: string; message: string }> {
+    try {
+      const healthEndpoint = `${this.modalEndpoint}/health`;
+      console.log(`🏥 Checking Modal health at: ${healthEndpoint}`);
+
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch(healthEndpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return {
+          status: "unhealthy",
+          message: `Health check failed: ${response.status} ${response.statusText}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        status: "healthy",
+        message: `Modal service healthy: ${result.service || 'unknown'}`
+      };
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        return {
+          status: "unhealthy",
+          message: "Health check timed out after 10 seconds"
+        };
+      }
+      return {
+        status: "unhealthy",
+        message: `Health check error: ${error.message}`
+      };
+    }
+  }
+}

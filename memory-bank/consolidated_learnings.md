@@ -185,3 +185,110 @@
   - In Node.js ESM environments, always include file extensions in import paths (e.g., `../cloudinary.js`)
   - Different behavior between TypeScript compilation and runtime requires careful path management
   - **Rationale:** Prevents "Cannot find module" errors in production environments
+
+## Critical Bug Recovery Patterns
+
+### File Corruption Recovery via Git
+**Pattern: Git-Based File Restoration**
+- When file corruption occurs (truncation, syntax errors), restore from previous working commit
+- Use `git checkout <commit> -- <file>` to recover complete file structure
+- Validate syntax and functionality before redeployment
+- *Rationale:* Provides reliable recovery mechanism when file editing goes wrong, prevents deployment failures
+
+### NameError Resolution Strategy
+**Pattern: Missing Function Implementation Recovery**
+- When encountering `NameError: name 'function' is not defined`, check if function exists in codebase
+- Implement missing functions with proper error handling and logging
+- Test deployment thoroughly before production release
+- *Rationale:* Ensures all required functions are properly implemented and imported
+
+## Authentication System Design
+
+### Base64 Cookie Authentication
+**Pattern: Secure Environment Variable Cookie Storage**
+- Encode YouTube cookies using base64 for secure environment variable storage
+- Decode cookies at runtime with proper error handling
+- Validate cookie expiration and format before use
+- *Rationale:* Enables secure cookie storage across deployment platforms while maintaining functionality
+
+### Cross-Platform Authentication Compatibility
+**Pattern: Unified Authentication System**
+- Implement identical authentication logic for multiple deployment environments
+- Use same environment variable names and processing flow
+- Ensure consistent cookie validation and file handling
+- *Rationale:* Simplifies deployment and maintenance across different platforms
+
+### Secure Temporary File Management
+**Pattern: Proper File Permissions and Cleanup**
+- Create temporary cookie files with restrictive permissions (600)
+- Implement automatic cleanup after processing completion
+- Use secure temporary directories with proper access controls
+- *Rationale:* Prevents credential exposure and resource leaks in production environments
+
+## Environment Variable Management
+
+### Base64 Encoding for Complex Data
+**Pattern: Environment Variable Data Encoding**
+- Use base64 encoding for complex data in environment variables
+- Implement proper decoding with error handling
+- Validate decoded data format and content
+- *Rationale:* Enables storage of structured data in environment variables while maintaining security
+
+### Cross-Platform Environment Consistency
+**Pattern: Unified Environment Variable Strategy**
+- Use identical environment variable names across all deployment platforms
+- Implement consistent validation and processing logic
+- Document environment variable requirements clearly
+- *Rationale:* Reduces deployment complexity and configuration errors
+
+## Deployment and Recovery Strategies
+
+### Git Commit Recovery Strategy
+**Pattern: Frequent Commits for Easy Rollback**
+- Commit changes frequently to enable easy rollback
+- Use descriptive commit messages for quick identification
+- Test deployments thoroughly before production release
+- *Rationale:* Provides safety net for quick recovery from deployment issues
+
+### Syntax Validation Before Deployment
+**Pattern: Pre-Deployment Validation**
+- Validate file syntax and completeness before deployment
+- Test imports and function availability
+- Verify environment variable processing
+- *Rationale:* Prevents deployment failures due to syntax errors or missing components
+
+## YouTube Bot Detection Mitigation
+
+### Cookie-Based Authentication Success
+**Pattern: Authentication for Bot Detection Bypass**
+- Implement cookie-based authentication to bypass YouTube bot detection
+- Use valid, non-expired cookies from authenticated sessions
+- Monitor authentication success rates and cookie expiration
+- *Rationale:* Significantly improves download success rates for restricted content
+
+### Authentication Error Handling
+**Pattern: Graceful Authentication Degradation**
+- Implement fallback mechanisms when authentication fails
+- Provide clear error messages for authentication issues
+- Log authentication attempts for monitoring and debugging
+- *Rationale:* Ensures system reliability even when authentication encounters issues
+
+## Security Best Practices
+
+### Credential Security in Production
+**Pattern: Secure Credential Handling**
+- Never store credentials in code or version control
+- Use environment variables with proper encoding for sensitive data
+- Implement proper file permissions for temporary credential files
+- *Rationale:* Prevents credential exposure and maintains security compliance
+
+### Environment Variable Validation
+**Pattern: Secure Environment Variable Processing**
+- Validate environment variable presence and format
+- Implement secure decoding of encoded values
+- Handle missing or invalid environment variables gracefully
+- *Rationale:* Prevents runtime errors and ensures secure credential processing
+
+---
+
+*Previous consolidated learnings preserved below for historical reference.*
