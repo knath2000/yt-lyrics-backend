@@ -11,7 +11,9 @@ from typing import Dict, Any, Optional, Callable, List
 import requests
 import base64
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware# Modal app definition
+from fastapi.middleware.cors import CORSMiddleware
+
+# Modal app definition
 app = modal.App("youtube-transcription-v3")
 
 # Modal image with all dependencies
@@ -1161,6 +1163,79 @@ def enhanced_transcription_orchestrator(audio_path: Path) -> Dict[str, Any]:
         cleanup_temp_files()
         
         raise
+
+
+# FastAPI Web Application
+web_app = FastAPI(title="YouTube Transcription API", version="1.0.0")
+
+# Configure CORS
+web_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@web_app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "youtube-transcription-v3"
+    }
+
+@web_app.post("/transcribe")
+async def transcribe_endpoint(request: Dict[str, Any]):
+    """Transcription endpoint that accepts YouTube URL and audio URL"""
+    try:
+        youtube_url = request.get("youtube_url")
+        audio_url = request.get("audio_url")
+        job_id = request.get("job_id", "unknown")
+        openai_model = request.get("openai_model", "gpt-4o-transcribe")
+        download_error = request.get("download_error")
+
+        print(f"[WebAPI] 🚀 Starting transcription job {job_id}")
+        print(f"[WebAPI] 📺 YouTube URL: {youtube_url}")
+        print(f"[WebAPI] 🎵 Audio URL: {audio_url}")
+
+        if not audio_url:
+            raise HTTPException(status_code=400, detail="audio_url is required")
+
+        # Download audio file
+        import tempfile
+        import requests
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            audio_path = temp_path / f"audio_{job_id}.mp3"
+
+            print(f"[WebAPI] 📥 Downloading audio from: {audio_url}")
+            response = requests.get(audio_url, stream=True)
+            response.raise_for_status()
+
+            with open(audio_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            print(f"[WebAPI] ✅ Audio downloaded: {audio_path}")
+
+            # Perform transcription
+            print(f"[WebAPI] 🎯 Starting transcription with model: {openai_model}")
+            result = enhanced_transcription_orchestrator(audio_path)
+
+            print(f"[WebAPI] ✅ Transcription completed for job {job_id}")
+            return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[WebAPI] ❌ Transcription failed for job {job_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
 
 # Web endpoint function for Modal
