@@ -9,8 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List
 import requests
+import base64
 
-# Define the simplified Modal image with stable dependencies
+# Define the enhanced Modal image with authentication dependencies
 image = modal.Image.debian_slim(python_version="3.11").pip_install([
     # Core dependencies with stable versions
     "torch>=2.1.0",
@@ -24,13 +25,25 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install([
     "requests>=2.31.0",        # HTTP requests
     "groq>=0.4.1",             # Ultra-fast Groq Whisper API
     "fastapi[standard]>=0.100.0",  # Required for web endpoints
+    
+    # Enhanced authentication dependencies
+    "browser_cookie3>=0.19.0",  # Browser cookie extraction
+    "selenium>=4.15.0",         # Browser automation
+    "webdriver_manager>=4.0.0", # WebDriver management
+    "google-auth-oauthlib>=1.2.0", # OAuth support
+    "google-auth-httplib2>=0.2.0", # OAuth HTTP support
 ]).apt_install([
     "git",           # Required for yt-dlp GitHub install
     "ffmpeg",        # Audio processing
     "curl",          # Downloads
+    "chromium-browser", # For browser automation
+    "chromium-chromedriver", # ChromeDriver for Selenium
 ]).run_commands([
     # Install latest yt-dlp with fallback - PRESERVE EXACT IMPLEMENTATION
     "pip install --upgrade --force-reinstall git+https://github.com/yt-dlp/yt-dlp.git || pip install --upgrade --force-reinstall yt-dlp",
+    
+    # Set up Chrome for headless browsing
+    "chmod +x /usr/lib/bin/chromedriver",
 ])
 
 app = modal.App("youtube-transcription")
@@ -453,6 +466,197 @@ def upload_to_cloudinary(file_path: Path, public_id: str, resource_type: str = "
         print(f"Cloudinary upload error: {e}")
         return None
 
+def validate_cookies(cookie_content: str) -> bool:
+    """Validate cookie format and content"""
+    if not cookie_content or len(cookie_content.strip()) == 0:
+        print("[Modal] ERROR: Empty or None cookie content")
+        return False
+    
+    # Check if it's a valid Netscape cookie format
+    lines = cookie_content.strip().split('\n')
+    valid_lines = 0
+    
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        
+        # Netscape format: domain, flag, path, secure, expiration, name, value
+        parts = line.split('\t')
+        if len(parts) >= 7:
+            try:
+                # Check if expiration is a valid timestamp
+                expiration = int(parts[4])
+                if expiration > 0:  # Not expired
+                    valid_lines += 1
+            except ValueError:
+                continue
+    
+    if valid_lines == 0:
+        print("[Modal] ERROR: No valid cookies found in content")
+        return False
+    
+    print(f"[Modal] Cookie validation successful: {valid_lines} valid cookie(s) found")
+    return True
+
+def decode_cookie_content(cookie_content: str) -> str:
+    """Decode cookie content, handling both plain text and base64"""
+    if not cookie_content:
+        return ""
+    
+    # Try base64 decoding first
+    try:
+        decoded = base64.b64decode(cookie_content).decode('utf-8')
+        print(f"[Modal] Successfully decoded base64 cookies, length: {len(decoded)}")
+        return decoded
+    except Exception as e:
+        print(f"[Modal] Base64 decode failed ({e}), treating as plain text")
+        return cookie_content
+
+def create_cookie_file(cookie_content: str, temp_path: Path) -> Optional[str]:
+    """Create cookie file with comprehensive error handling"""
+    try:
+        # Validate input
+        if not cookie_content:
+            print("[Modal] ERROR: No cookie content provided")
+            return None
+        
+        # Decode cookies
+        decoded_cookies = decode_cookie_content(cookie_content)
+        
+        # Validate cookie format
+        if not validate_cookies(decoded_cookies):
+            print("[Modal] ERROR: Cookie validation failed")
+            return None
+        
+        # Create unique cookie file name to avoid conflicts
+        cookie_file = temp_path / f"youtube_cookies_{os.getpid()}_{int(time.time())}.txt"
+        
+        # Write cookie file
+        with open(cookie_file, 'w', encoding='utf-8') as f:
+            f.write(decoded_cookies)
+        
+        # Verify file was created and is readable
+        if not cookie_file.exists():
+            print("[Modal] ERROR: Cookie file was not created")
+            return None
+        
+        file_size = cookie_file.stat().st_size
+        if file_size == 0:
+            print("[Modal] ERROR: Cookie file is empty")
+            return None
+        
+        # Set proper permissions (readable by owner only)
+        cookie_file.chmod(0o600)
+        
+        print(f"[Modal] ✅ Cookie file created successfully: {cookie_file} ({file_size} bytes)")
+        
+        # Test file readability
+        try:
+            with open(cookie_file, 'r', encoding='utf-8') as f:
+                first_line = f.readline().strip()
+                if first_line:
+                    print(f"[Modal] First cookie line: {first_line[:50]}...")
+        except Exception as e:
+            print(f"[Modal] ERROR: Cannot read cookie file: {e}")
+            return None
+        
+        return str(cookie_file)
+        
+    except Exception as e:
+        print(f"[Modal] ERROR: Failed to create cookie file: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def cleanup_cookie_file(cookie_file_path: Optional[str]):
+    """Safely cleanup cookie file"""
+    if cookie_file_path and os.path.exists(cookie_file_path):
+        try:
+            os.unlink(cookie_file_path)
+            print(f"[Modal] ✅ Cookie file cleaned up: {cookie_file_path}")
+        except Exception as e:
+            print(f"[Modal] WARNING: Failed to cleanup cookie file {cookie_file_path}: {e}")
+
+def setup_cookie_authentication(temp_path: Path) -> Optional[str]:
+    """Enhanced YouTube authentication setup with multiple methods"""
+    
+    print("[Modal] 🔐 Setting up YouTube authentication...")
+    
+    # Method 1: Environment variable cookies
+    cookie_content = os.environ.get("YOUTUBE_COOKIES_CONTENT")
+    if cookie_content:
+        print("[Modal] 📋 Found YOUTUBE_COOKIES_CONTENT environment variable")
+        cookie_file = create_cookie_file(cookie_content, temp_path)
+        if cookie_file:
+            print("[Modal] ✅ Cookie authentication setup successful")
+            return cookie_file
+        else:
+            print("[Modal] ❌ Cookie file creation failed")
+    
+    # Method 2: Check for existing cookie file (fallback)
+    existing_cookie_files = list(temp_path.glob("youtube_cookies*.txt"))
+    if existing_cookie_files:
+        cookie_file = str(existing_cookie_files[0])
+        print(f"[Modal] 📋 Using existing cookie file: {cookie_file}")
+        return cookie_file
+    
+    print("[Modal] ⚠️ No authentication method available")
+    return None
+
+def setup_oauth_authentication(credentials) -> Optional[str]:
+    """Set up OAuth-based authentication for YouTube"""
+    print("[Modal] Setting up OAuth authentication...")
+    
+    try:
+        # This is a placeholder for OAuth implementation
+        # In a real implementation, you would:
+        # 1. Use the Google API client to authenticate
+        # 2. Get access tokens
+        # 3. Use authenticated requests for downloads
+        
+        print("[Modal] ⚠️ OAuth authentication not fully implemented yet")
+        print("[Modal] This would require Google API credentials and YouTube Data API setup")
+        return None
+        
+    except Exception as e:
+        print(f"[Modal] OAuth setup error: {e}")
+        return None
+
+def download_with_authenticated_request(video_url: str, credentials) -> Optional[Path]:
+    """Download video using authenticated HTTP requests"""
+    print("[Modal] Attempting authenticated download...")
+    
+    try:
+        # This is a placeholder for authenticated download
+        # In a real implementation, you would:
+        # 1. Use OAuth credentials to get access tokens
+        # 2. Make authenticated requests to YouTube
+        # 3. Handle streaming downloads
+        
+        print("[Modal] ⚠️ Authenticated download not implemented yet")
+        return None
+        
+    except Exception as e:
+        print(f"[Modal] Authenticated download error: {e}")
+        return None
+
+def setup_browser_automation_authentication() -> Optional[str]:
+    """Set up browser automation for authentication"""
+    print("[Modal] Setting up browser automation authentication...")
+    
+    try:
+        # This would require Selenium or Playwright in Modal
+        # For now, this is a placeholder
+        
+        print("[Modal] ⚠️ Browser automation not available in Modal environment")
+        print("[Modal] This would require additional dependencies and browser setup")
+        return None
+        
+    except Exception as e:
+        print(f"[Modal] Browser automation setup error: {e}")
+        return None
+
 @app.function(
     image=image,
     gpu="A10G",
@@ -586,7 +790,7 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
                     # PRESERVE EXACT YT-DLP IMPLEMENTATION AS FALLBACK
                     output_path = temp_path / "downloaded_audio.%(ext)s"
                     
-                    # Prepare yt-dlp command with cookie support
+                    # Prepare yt-dlp command with enhanced cookie support
                     cmd = [
                         "yt-dlp",
                         "--extract-audio",
@@ -598,42 +802,37 @@ def transcribe_youtube(request_data: dict) -> Dict[str, Any]:
                         "--output", str(output_path),
                     ]
                     
-                    # Add cookie support if YOUTUBE_COOKIES_CONTENT is available
-                    cookie_file_path = None
-                    if os.environ.get("YOUTUBE_COOKIES_CONTENT"):
-                        try:
-                            # Create temporary cookie file from environment variable
-                            import base64
-                            cookies_content = os.environ.get("YOUTUBE_COOKIES_CONTENT")
-                            if cookies_content:
-                                # Decode if base64 encoded
-                                try:
-                                    decoded_cookies = base64.b64decode(cookies_content).decode('utf-8')
-                                except:
-                                    decoded_cookies = cookies_content
-                                
-                                cookie_file_path = temp_path / "youtube_cookies.txt"
-                                with open(cookie_file_path, 'w') as f:
-                                    f.write(decoded_cookies)
-                                
-                                cmd.extend(["--cookies", str(cookie_file_path)])
-                                print("[Modal] Using cookies for fallback download")
-                        except Exception as cookie_error:
-                            print(f"[Modal] Cookie setup warning: {cookie_error}")
+                    # Enhanced cookie authentication setup
+                    cookie_file_path = setup_youtube_authentication(temp_path)
+                    if cookie_file_path:
+                        cmd.extend(["--cookies", cookie_file_path])
+                        print(f"[Modal] ✅ Using enhanced cookie authentication: {cookie_file_path}")
+                    else:
+                        print("[Modal] ⚠️ No cookie authentication available, proceeding without cookies")
                     
                     cmd.append(youtube_url)
                     
+                    print(f"[Modal] Executing yt-dlp command: {' '.join(cmd)}")
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
                     
-                    # Clean up temporary cookie file
-                    if cookie_file_path and cookie_file_path.exists():
-                        try:
-                            cookie_file_path.unlink()
-                        except:
-                            pass
-                    
+                    # Enhanced error handling and logging
                     if result.returncode != 0:
+                        print(f"[Modal] ❌ yt-dlp failed with return code {result.returncode}")
+                        print(f"[Modal] STDERR: {result.stderr}")
+                        print(f"[Modal] STDOUT: {result.stdout}")
+                        
+                        # Check for specific error patterns
+                        if "Sign in to confirm" in result.stderr:
+                            print("[Modal] 🚫 Bot detection error detected")
+                        elif "cookies" in result.stderr.lower():
+                            print("[Modal] 🚫 Cookie-related error detected")
+                        
                         raise Exception(f"Modal fallback yt-dlp failed: {result.stderr}")
+                    
+                    print(f"[Modal] ✅ yt-dlp completed successfully")
+                    
+                    # Enhanced cleanup with error handling
+                    cleanup_cookie_file(cookie_file_path)
                     
                     # Find downloaded file
                     downloaded_files = list(temp_path.glob("downloaded_audio.*"))
