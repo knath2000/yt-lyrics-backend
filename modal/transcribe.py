@@ -36,14 +36,17 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install([
     "git",           # Required for yt-dlp GitHub install
     "ffmpeg",        # Audio processing
     "curl",          # Downloads
-    "chromium-browser", # For browser automation
-    "chromium-chromedriver", # ChromeDriver for Selenium
+    "chromium",      # For browser automation (Debian package name)
+    "chromium-driver", # ChromeDriver for Selenium (Debian package name)
 ]).run_commands([
     # Install latest yt-dlp with fallback - PRESERVE EXACT IMPLEMENTATION
     "pip install --upgrade --force-reinstall git+https://github.com/yt-dlp/yt-dlp.git || pip install --upgrade --force-reinstall yt-dlp",
     
     # Set up Chrome for headless browsing
-    "chmod +x /usr/lib/bin/chromedriver",
+    "which chromedriver && chmod +x $(which chromedriver) || echo 'ChromeDriver not found, will use webdriver-manager'",
+]).run_commands([
+    # Install latest yt-dlp with fallback - PRESERVE EXACT IMPLEMENTATION
+    "pip install --upgrade --force-reinstall git+https://github.com/yt-dlp/yt-dlp.git || pip install --upgrade --force-reinstall yt-dlp",
 ])
 
 app = modal.App("youtube-transcription")
